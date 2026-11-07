@@ -40,3 +40,24 @@ https://github.com/edycutjong/allowance-demo/issues/7 · opened by the repositor
 "is a maintainer: charged to the repository pool, not a contributor allowance · repository pool: $0.29 spent today by 19
 contributors, ceiling $5.00/month (Otari key budget)", triage by `meta.llama3-3-70b-instruct-v1:0` on bedrock,
 request `db089b2e-a84e-4bc3-8ece-6d74dfe0a5d1`. Before this fix the owner's issues showed a contributor allowance of `$0.0000 of $0.05`.
+
+## Script gate and pinned revision (2026-11-07, after the architecture review)
+
+Every `/repro` now installs the default branch's head commit and names it; a model-written script runs only if it
+installs this repository, calls a project function the issue names and raises the marker under a condition on that
+call's result (`lib/script-check.ts`); the verdict reads only the exception that ends the sandbox's stderr.
+
+- Sandbox stream probe (direct `POST /code/execute`, no issue): a script printing to both streams and raising
+  `AssertionError` came back with the traceback in `stderr`, ending in `AssertionError: probe-marker`, `return_code` 1.
+  Request `7e3c139f-a519-447a-ac41-00f69a9d46df`.
+- Issue #6, `/repro` by the maintainer: **Reproduced**, installed at `9259e59`,
+  `REPRODUCED: expected [[1, 2], [3, 4], [5]], got [[1, 2], [3, 4]]`; model $0.0046 + sandbox ×1; tools: mcp ×5;
+  request `33fc9230-e3e2-4e56-b2a3-6fef055974e2`.
+  https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6707763033
+- Issue #7, `/repro` by the maintainer: **Inconclusive**, installed at `9259e59`. The model imported a package named
+  `allowance` (`ModuleNotFoundError`); its repair turn also changed the expected value from 5 to 4, so Allowance did
+  not run the repaired script and said so in the comment. Model $0.0077 + sandbox ×1; tools: mcp ×5; requests
+  `32ef6998-cc88-46fc-a6d2-32041c5b3fbd` (write) and `afd99192-d555-4431-b845-54b31ae4aa21` (repair turn).
+  https://github.com/edycutjong/allowance-demo/issues/7#issuecomment-6707750286
+- Redelivery: the issue #6 `/repro` delivery (answered 202) was redelivered through the GitHub App API; the issue still
+  has one verdict comment for that trigger and 7 comments in total.

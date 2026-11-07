@@ -360,3 +360,30 @@ test("triage: has_repro_steps must be the boolean true, not a truthy string", as
   const { parseTriage } = await import("../lib/triage.ts");
   assert.equal(parseTriage('{"kind":"bug","has_repro_steps":"false","summary":"s"}')!.has_repro_steps, false);
 });
+
+test("comment: sandbox output with a ``` run cannot break out of its fence", async () => {
+  const { fence } = await import("../lib/comment.ts");
+  const f = fence("before\n```\n@everyone [link](x)\n```");
+  assert.ok(f.startsWith("````\n") && f.endsWith("\n````"));
+});
+
+test("repair: a refused repair turn is named, not hidden behind Inconclusive", async () => {
+  let c = 0;
+  const f = (async (url: string) => {
+    if (url.endsWith("/chat/completions")) {
+      return c++ === 0
+        ? Response.json({ choices: [{ message: { content: good } }], usage: { cost_usd: 0.001 } })
+        : new Response(JSON.stringify({ code: "budget_exceeded" }), { status: 403, headers: { "otari-error-code": "budget_exceeded" } });
+    }
+    return Response.json({ return_code: 1, stderr: tb("ModuleNotFoundError: No module named 'x'") });
+  }) as unknown as typeof fetch;
+  const r = await runRepro(issue, "a", {}, env, f);
+  assert.match(r.kind === "ran" ? r.repair ?? "" : "", /repair turn was refused \(Otari 403 budget_exceeded\)/);
+});
+
+test("allowance: getEndUser ignores rows for another external id; pool says 'at least' past one page", async () => {
+  const { getEndUser } = await import("../lib/otari.ts");
+  const f = (async () => Response.json([{ external_id: "gh:someone-else", spend: 0.04 }])) as unknown as typeof fetch;
+  assert.equal(await getEndUser("gh:alice", env, f), null);
+  assert.match(poolLine({ spentToday: 1, users: 1000, ceilingUsd: 5, truncated: true }), /at least \$1\.00\*\* spent today by at least 1000 contributors/);
+});

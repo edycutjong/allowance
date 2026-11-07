@@ -70,8 +70,9 @@ export function clipBody(body: string): string {
 export function userMessage(issue: Issue): unknown {
   const text = `Issue #${issue.number}: ${issue.title.slice(0, 300)}\nURL: ${issue.url}\nAuthor: @${issue.author}\n\n${clipBody(issue.body)}`;
   if (!issue.imageUrls.length) return { role: "user", content: text };
-  // Screenshots go to the model as images; the text-only coder refuses them and the
-  // routing policy falls back to Qwen3-VL on another provider.
+  // Screenshots go to the model as image parts. The routing policy lists Qwen3-VL as a fallback for a
+  // primary that refuses them, but the current primary (Qwen3-Coder Turbo on DeepInfra) accepted the
+  // screenshot on issue #6 and no fallback happened (evidence/live-runs.md).
   return {
     role: "user",
     content: [{ type: "text", text }, ...issue.imageUrls.slice(0, 2).map((url) => ({ type: "image_url", image_url: { url } }))],
@@ -245,7 +246,11 @@ export async function runRepro(
       ],
     };
     const next = await chat(key, repair, env, fetchImpl);
-    if (!next.ok) break;
+    if (!next.ok) {
+      // e.g. budget_exceeded or the guard blocking the sandbox output: say so instead of a silent Inconclusive
+      repairNote = `the repair turn was refused (Otari ${next.status}${next.code ? " " + next.code : ""})`;
+      break;
+    }
     res = next;
     turns.push(next);
     modelCost += next.costUsd;

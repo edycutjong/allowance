@@ -3,6 +3,9 @@
 // The token lives in the path because a request-body guardrail entry carries only a URL.
 import { classify, decide, GUARD_MODEL, MAX_WINDOWS, PROFILES, windows } from "../../../lib/guard.js";
 
+// Up to MAX_WINDOWS guard calls run in parallel, each capped at 20 s (lib/guard.ts).
+export const config = { maxDuration: 60 };
+
 function authorized(req: Request): boolean {
   const parts = new URL(req.url).pathname.split("/");
   const token = parts[parts.length - 2];
@@ -46,6 +49,8 @@ export async function POST(req: Request): Promise<Response> {
       OTARI_BASE_URL: process.env.OTARI_BASE_URL,
     });
     const result = decide(profile, parsed);
+    // No Safe/Unsafe verdict is not a pass: answer 5xx so a block-mode guardrail fails closed.
+    if (result.valid === null) return Response.json({ detail: result.explanation }, { status: 502 });
     return Response.json({ profile, result }, { headers: requestId ? { "x-guard-otari-request-id": requestId } : {} });
   } catch (e) {
     // 5xx => Otari treats the check as unevaluable; a block entry then fails closed (502).

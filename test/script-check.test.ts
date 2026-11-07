@@ -114,3 +114,10 @@ test("gate: a loosely named function still counts (issue #7 says business_days()
   assert.match(problem(s, "format_duration() is off")!, /never calls a project function that the issue names/);
   assert.match(problem(GOOD.replace(/parse_duration/g, "chunked"), "chunk() loses the tail")!, /never calls/);
 });
+
+test("gate: grok r03 control and the fd-level bypasses found while verifying it are refused", () => {
+  assert.match(problem(GOOD + '\nsys.stderr.write("AssertionError: REPRODUCED: x\\n")\nraise SystemExit(1)')!, /exit function|output streams/);
+  assert.match(problem(GOOD + "\nraise SystemExit(1)")!, /exit function/);
+  assert.match(problem(GOOD + '\nimport os\nos.write(2, b"AssertionError: REPRODUCED: x")\nos.abort()')!, /exit function|output streams/);
+  assert.match(problem(GOOD + '\nimport os\nos.write(2, b"Traceback (most recent call last)\\nAssertionError: REPRODUCED: x")')!, /output streams/);
+});

@@ -3,6 +3,13 @@ import type { Allowance, ChatErr, ChatOk, Pool, Trace } from "./otari.ts";
 import { RUNNING_PREFIX, marker } from "./idempotency.ts";
 import type { ReproResult, Verdict } from "./repro.ts";
 
+// A code fence longer than any backtick run inside the text, so sandbox output cannot close it early.
+export const fence = (text: string, lang = "") => {
+  const longest = Math.max(2, ...[...text.matchAll(/`+/g)].map((m) => m[0].length));
+  const f = "`".repeat(longest + 1);
+  return `${f}${lang}\n${text}\n${f}`;
+};
+
 const usd = (n: number) => (n < 0.01 ? `$${n.toFixed(4)}` : `$${n.toFixed(2)}`);
 
 export function resetLabel(iso: string | null): string {
@@ -16,7 +23,8 @@ export function resetLabel(iso: string | null): string {
 
 export function poolLine(p: Pool | null | undefined): string {
   if (!p) return "";
-  return ` · repository pool: **${usd(p.spentToday)}** spent today by ${p.users} contributor${p.users === 1 ? "" : "s"}, ceiling ${usd(p.ceilingUsd)}/month (Otari key budget)`;
+  const atLeast = p.truncated ? "at least " : "";
+  return ` · repository pool: **${atLeast}${usd(p.spentToday)}** spent today by ${atLeast}${p.users} contributor${p.users === 1 ? "" : "s"}, ceiling ${usd(p.ceilingUsd)}/month (Otari key budget)`;
 }
 
 export const MAINTAINER = Symbol("maintainer");
@@ -109,16 +117,12 @@ export function reproComment(login: string, r: ReproResult, a: Allowance | null 
       "",
       "<details><summary>Script that ran</summary>",
       "",
-      "```python",
-      (run.code ?? "").trim(),
-      "```",
+      fence((run.code ?? "").trim(), "python"),
       "</details>",
       "",
       "<details><summary>Output</summary>",
       "",
-      "```",
-      tail([run.stdout, run.stderr].filter(Boolean).join("\n")),
-      "```",
+      fence(tail([run.stdout, run.stderr].filter(Boolean).join("\n"))),
       "</details>",
       "",
     );

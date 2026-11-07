@@ -21,8 +21,8 @@ const STDLIB = new Set(
 );
 
 const FORBIDDEN: [RegExp, string][] = [
-  [/\b(sys\.exit|os\._exit|os\.kill|exit|quit)\s*\(/, "calls an exit function"],
-  [/\bsys\.(stderr|stdout)\b|\bfile\s*=\s*sys\./, "writes to the output streams directly"],
+  [/\b(sys\.exit|os\._exit|os\.kill|os\.abort|exit|quit)\s*\(|\bSystemExit\b|\bctypes\b|\bsignal\.(raise_signal|alarm)\b/, "calls an exit function"],
+  [/\bsys\.(stderr|stdout|__stderr__|__stdout__)\b|\bfile\s*=\s*sys\.|\bos\.(write|dup2|fdopen)\s*\(/, "writes to the output streams directly"],
   [/\bexcept\s*(:|\(?\s*(AssertionError|Exception|BaseException)\b)/, "catches the assertion (catch-all except)"],
   [/\b(exec|eval|compile)\s*\(|__import__\s*\(/, "runs dynamic code"],
 ];

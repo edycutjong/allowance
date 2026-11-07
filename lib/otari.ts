@@ -137,7 +137,8 @@ export async function getEndUser(
   });
   if (!r.ok) throw new Error(`end-users ${r.status}`);
   const list = (await r.json()) as EndUser[];
-  return list[0] ?? null;
+  // never trust the filter blindly: another contributor's spend must not show up as this one's
+  return Array.isArray(list) ? (list.find((u) => u.external_id === externalId) ?? null) : null;
 }
 
 export async function getEndUserBudgets(
@@ -219,7 +220,7 @@ export async function executeCode(
 // The repository pool, as far as a service key can see it: the key-scoped budget and usage routes
 // are master-key only (401), so the pool is shown as the contributors' combined spend on the
 // service key today (sum of end-user spend; per-user budgets reset daily) next to the configured key ceiling.
-export type Pool = { spentToday: number; users: number; ceilingUsd: number };
+export type Pool = { spentToday: number; users: number; ceilingUsd: number; truncated?: boolean };
 
 export async function getPool(
   env: Pick<OtariEnv, "OTARI_BASE_URL" | "OTARI_SERVICE_KEY">,
@@ -232,5 +233,6 @@ export async function getPool(
   });
   if (!r.ok) throw new Error(`end-users ${r.status}`);
   const list = (await r.json()) as Pick<EndUser, "spend" | "reserved">[];
-  return { spentToday: list.reduce((n, u) => n + (u.spend ?? 0), 0), users: list.length, ceilingUsd };
+  // one page of up to 1000 end users; past that the footer says "at least"
+  return { spentToday: list.reduce((n, u) => n + (u.spend ?? 0), 0), users: list.length, ceilingUsd, truncated: list.length >= 1000 };
 }
