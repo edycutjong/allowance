@@ -8,6 +8,7 @@
 
   [![Live](https://img.shields.io/badge/🚀_Live-allowance.edycu.dev-06b6d4?style=for-the-badge)](https://allowance.edycu.dev)
   [![Try it](https://img.shields.io/badge/🧪_Try_it-allowance--demo-f59e0b?style=for-the-badge)](https://github.com/edycutjong/allowance-demo/issues)
+  [![Pitch deck](https://img.shields.io/badge/🎞️_Pitch_deck-allowance.edycu.dev%2Fdeck-8C7A4F?style=for-the-badge)](https://allowance.edycu.dev/deck)
   [![Built for Otari](https://img.shields.io/badge/DoraHacks-Devs_Wilding_Online-8b5cf6?style=for-the-badge)](https://dorahacks.io/hackathon/mozilla-devs-wilding/detail)
 
   <br/>
@@ -155,7 +156,7 @@ docs/       architecture.svg, OTARI-FEEDBACK.md
 
 ## 📽️ Demo Materials
 
-[DEMO.md](DEMO.md) (the beats, with links) · [docs/OTARI-FEEDBACK.md](docs/OTARI-FEEDBACK.md) (what we hit building on Otari) · [live-runs.md](evidence/live-runs.md)
+[Landing page](https://allowance.edycu.dev/) · [pitch deck](https://allowance.edycu.dev/deck) (10 slides; arrow keys, P for notes) · [DEMO.md](DEMO.md) (the beats, with links) · [docs/OTARI-FEEDBACK.md](docs/OTARI-FEEDBACK.md) (what we hit building on Otari) · [live-runs.md](evidence/live-runs.md)
 
 ## 📄 License
 
