@@ -1,0 +1,64 @@
+// Minimal GitHub App client: webhook signature check, app JWT, installation token, comments, labels.
+import { createHmac, createSign, timingSafeEqual } from "node:crypto";
+
+export function verifySignature(secret: string, rawBody: string, header: string | null): boolean {
+  if (!secret || !header?.startsWith("sha256=")) return false;
+  const want = Buffer.from("sha256=" + createHmac("sha256", secret).update(rawBody).digest("hex"));
+  const got = Buffer.from(header);
+  return want.length === got.length && timingSafeEqual(want, got);
+}
+
+export function appJwt(appId: string, privateKeyPem: string, nowSec = Math.floor(Date.now() / 1000)): string {
+  const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const data = `${b64({ alg: "RS256", typ: "JWT" })}.${b64({ iat: nowSec - 60, exp: nowSec + 540, iss: appId })}`;
+  return `${data}.${createSign("RSA-SHA256").update(data).sign(privateKeyPem, "base64url")}`;
+}
+
+const API = "https://api.github.com";
+const baseHeaders = { Accept: "application/vnd.github+json", "User-Agent": "allowance-bot", "X-GitHub-Api-Version": "2022-11-28" };
+
+export async function installationToken(appId: string, pem: string, installationId: number, fetchImpl: typeof fetch = fetch) {
+  const r = await fetchImpl(`${API}/app/installations/${installationId}/access_tokens`, {
+    method: "POST",
+    headers: { ...baseHeaders, Authorization: `Bearer ${appJwt(appId, pem)}` },
+  });
+  if (!r.ok) throw new Error(`installation token ${r.status}`);
+  return ((await r.json()) as { token: string }).token;
+}
+
+export class Repo {
+  readonly fullName: string;
+  private token: string;
+  private fetchImpl: typeof fetch;
+  constructor(fullName: string, token: string, fetchImpl: typeof fetch = fetch) {
+    this.fullName = fullName;
+    this.token = token;
+    this.fetchImpl = fetchImpl;
+  }
+
+  private async call(method: string, path: string, body?: unknown) {
+    const r = await this.fetchImpl(`${API}/repos/${this.fullName}${path}`, {
+      method,
+      headers: { ...baseHeaders, Authorization: `Bearer ${this.token}`, "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error(`GitHub ${method} ${path} -> ${r.status}: ${(await r.text()).slice(0, 200)}`);
+    return r.status === 204 ? null : r.json();
+  }
+
+  comment(issue: number, body: string) {
+    return this.call("POST", `/issues/${issue}/comments`, { body }) as Promise<{ id: number; html_url: string }>;
+  }
+  editComment(id: number, body: string) {
+    return this.call("PATCH", `/issues/comments/${id}`, { body });
+  }
+  addLabels(issue: number, labels: string[]) {
+    return labels.length ? this.call("POST", `/issues/${issue}/labels`, { labels }) : Promise.resolve(null);
+  }
+  removeLabel(issue: number, label: string) {
+    return this.call("DELETE", `/issues/${issue}/labels/${encodeURIComponent(label)}`).catch(() => null);
+  }
+  react(commentId: number, content: "eyes" | "rocket" | "-1" | "+1") {
+    return this.call("POST", `/issues/comments/${commentId}/reactions`, { content }).catch(() => null);
+  }
+}

@@ -113,3 +113,17 @@ export function refusalComment(login: string, e: ChatErr, a: Allowance | null): 
     `<sub>request \`${e.trace.requestId ?? "?"}\`</sub>`,
   ].join("\n");
 }
+
+export function welcomeComment(login: string, t: { kind: string; has_repro_steps: boolean; summary: string } | null, a: Allowance | null, trace: Trace): string {
+  const lines = [`👋 Thanks @${login}.`];
+  if (t) lines.push("", `Triage: **${t.kind}**${t.kind === "bug" ? (t.has_repro_steps ? " with reproduction steps" : ", no reproduction steps yet") : ""}. ${t.summary}`);
+  lines.push(
+    "",
+    "Comment `/repro` and I will write a minimal script, run it in a sandbox, and report whether the bug is real. The verdict comes from the sandbox exit code, not from a model.",
+    "",
+    `<sub>${allowanceLine(login, a)} · triage by ${traceLine(trace)}</sub>`,
+  );
+  return lines.join("\n");
+}
+
+export const RUNNING = (login: string) => `⏳ Reproducing for @${login} in a sandbox… this comment will update.`;
