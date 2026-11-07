@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Allowance — for judges</title>
+<meta name="description" content="Allowance in 30 seconds: what to click, what each Otari feature proves, and what is not claimed.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="Allowance — for judges">
+<meta property="og:image" content="https://allowance.edycu.dev/media/og.png?v=0442177a">
+<style>
+@font-face{font-family:"Instrument Serif";src:url(/fonts/instrument-serif-400-normal.woff2) format("woff2");font-display:swap}
+@font-face{font-family:"Source Sans 3";src:url(/fonts/source-sans-3-var.woff2) format("woff2");font-weight:200 900;font-display:swap}
+@font-face{font-family:"IBM Plex Mono";src:url(/fonts/ibm-plex-mono-400-normal.woff2) format("woff2");font-display:swap}
+:root{--bg:#FAF8F3;--paper:#FFFDF8;--ink:#1B1A17;--muted:#6B665C;--rule:#D9D3C4;--after:#B3261E;--before-ink:#76683F}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.55 "Source Sans 3","Helvetica Neue",Arial,sans-serif}
+main{max-width:860px;margin:0 auto;padding:48px 22px 72px}
+h1{font:400 clamp(40px,7vw,64px)/1.02 "Instrument Serif",Georgia,serif;margin:0 0 14px}
+h2{font:400 30px/1.15 "Instrument Serif",Georgia,serif;margin:44px 0 12px;border-top:1px solid var(--rule);padding-top:22px}
+.eyebrow{font:500 13px/1 "IBM Plex Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--before-ink)}
+.claim{font-size:21px;max-width:44em}
+code,.data{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:.84em}
+a{color:var(--after);text-underline-offset:3px}
+a:hover,a:focus-visible{color:var(--ink)}
+a:focus-visible{outline:2px solid var(--after);outline-offset:3px;border-radius:2px}
+ol li{margin:0 0 10px}
+.table{overflow-x:auto;border:1px solid var(--rule);background:var(--paper);border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:16px}
+th,td{text-align:left;vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--rule)}
+th{font:500 12px/1.2 "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+tr:last-child td{border-bottom:0}
+.no{color:var(--muted)}
+pre{background:var(--ink);color:#F1EBDD;padding:16px;border-radius:6px;overflow-x:auto;font:14px/1.5 "IBM Plex Mono",monospace}
+.links{display:flex;flex-wrap:wrap;gap:10px 22px}
+footer{margin-top:52px;color:var(--muted);font-size:15px}
+</style>
+</head>
+<body>
+<main>
+<p class="eyebrow">For judges · Mozilla Otari “Devs Wilding Online”</p>
+<h1>Allowance, in 30 seconds</h1>
+<p class="claim" id="claim">Allowance gives every outside contributor a capped Otari allowance; on <code>/repro</code> an open-weight model writes a test, Otari's sandbox runs it, and the verdict is what the run did, not what the model believes.</p>
+
+<h2>The 30-second path</h2>
+<ol>
+<li>Open <a href="https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6708001599">issue #6</a>: a screenshot bug report. The bot's comment says <b>Reproduced</b>, return code 1, and shows the exact script it ran and the sandbox output.</li>
+<li>Open <a href="https://github.com/edycutjong/allowance-demo/issues/4#issuecomment-6708317077">issue #4</a>: a report of a bug that is not there. <b>Not reproduced</b>, return code 0. The footer counts the MCP tool calls (<code>mcp ×5</code>).</li>
+<li>Open <a href="https://github.com/edycutjong/allowance-demo/issues/7">issue #7</a>: the model's repair turn changed the expected value, and Allowance <b>refused to run it</b>. The model cannot argue its way to a verdict.</li>
+<li>Open <a href="https://github.com/edycutjong/allowance-demo/issues/5#issuecomment-6706212278">issue #5</a>: a prompt-injection issue, blocked by the guardrail with <code>403 guardrail_violation</code> before any coder model saw it.</li>
+<li>Open <a href="https://github.com/edycutjong/allowance-demo/issues/1#issuecomment-6705733501">issue #1</a>: the footer reads <code>$0.05 of $0.05 left today</code>, read back from the Otari end-user record; <a href="https://github.com/edycutjong/allowance-demo/issues/1#issuecomment-6706134836">after the runs</a> it reads <code>$0.0000 of $0.05</code>.</li>
+<li>Want to try it? Open an issue on <a href="https://github.com/edycutjong/allowance-demo/issues/new">allowance-demo</a> and comment <code>/repro</code>. You run on your own $0.05/day allowance.</li>
+</ol>
+
+<h2>Otari features, with proof</h2>
+<div class="table"><table>
+<thead><tr><th>Rubric feature</th><th>Where</th><th>Proof (Otari request id)</th></tr></thead>
+<tbody>
+<tr><td>Routing + fallbacks</td><td>every write goes to policy <code>allowance-coder</code></td><td><a href="https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6708001599">#6</a> <span class="data">c3709369</span>; fallback configured, not fired in an app run</td></tr>
+<tr><td>MCP</td><td>GitHub MCP server read while writing the script</td><td><a href="https://github.com/edycutjong/allowance-demo/issues/4#issuecomment-6708317077">#4</a> <span class="data">b606e6b5</span>, <code>mcp ×5</code></td></tr>
+<tr><td>Code execution</td><td><code>POST /code/execute</code> decides the verdict</td><td>#6 return code 1 · #4 return code 0</td></tr>
+<tr><td>Multiple models, distinct roles</td><td>coder Qwen3-Coder 480B · triage Llama 3.3 70B · guard Qwen3Guard 8B</td><td>#6 <span class="data">c3709369</span> · <a href="https://github.com/edycutjong/allowance-demo/issues/7#issuecomment-6707516143">#7</a> <span class="data">db089b2e</span> · #5</td></tr>
+<tr><td>Guardrails</td><td>our <code>/validate</code> service, Qwen3Guard behind it</td><td><a href="https://github.com/edycutjong/allowance-demo/issues/5#issuecomment-6706212278">#5</a> <span class="data">435df9c0</span>, 403</td></tr>
+<tr><td>Per-user budgets</td><td>each contributor is end user <code>gh:&lt;login&gt;</code> on a $0.05/day budget</td><td><a href="https://github.com/edycutjong/allowance-demo/issues/1#issuecomment-6705733501">#1</a> spend-down in the footer</td></tr>
+<tr class="no"><td>Web search / fetch</td><td colspan="2">Not claimed: offered to the model, not called in any verdict run</td></tr>
+<tr class="no"><td>Key budgets</td><td colspan="2">Not claimed: no run has been refused by a key budget yet</td></tr>
+</tbody></table></div>
+
+<h2>Receipts</h2>
+<ul>
+<li>Open-weight models only, all through the hosted Otari gateway.</li>
+<li>100 tests in CI, including a property test: across 25,000 generated sandbox runs, a <b>Reproduced</b> verdict only ever came from a failed run with the marker's AssertionError in stderr.</li>
+<li>Every verdict comment prints its Otari request id, the model cost and the sandbox run count.</li>
+</ul>
+
+<h2>Reproduce it</h2>
+<pre>git clone -b otari https://github.com/edycutjong/allowance &amp;&amp; cd allowance
+npm ci &amp;&amp; npm test
+# dry run against a real issue, no GitHub writes (needs Otari keys):
+node --experimental-strip-types scripts/repro.ts https://github.com/edycutjong/allowance-demo/issues/4 --as you</pre>
+<p>There is no mock mode: the dry run calls Otari and the sandbox for real.</p>
+
+<h2>Honest limits</h2>
+<ul>
+<li>The demo bugs are in a repository we planted; issues #1–#7 are the development transcript, early failed runs kept.</li>
+<li>The routing fallback to Qwen3-VL has not fired on the GitHub path; the first target accepted the screenshot.</li>
+<li>Otari guardrails screen the request text, not MCP/web-fetch results inside Otari's tool loop.</li>
+</ul>
+
+<h2>Links</h2>
+<p class="links">
+<a href="https://github.com/edycutjong/allowance/tree/otari">Source (branch otari)</a>
+<a href="https://github.com/edycutjong/allowance/commit/948f1b4">First Otari commit</a>
+<a href="https://github.com/edycutjong/allowance-demo/issues">Demo repo</a>
+<a href="/">Landing page</a>
+<a href="/deck">Pitch deck</a>
+</p>
+<footer>Allowance · MIT · built on Otari by Edy Cu</footer>
+</main>
+</body>
+</html>
