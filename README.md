@@ -7,6 +7,7 @@
   <br/>
 
   [![Live](https://img.shields.io/badge/🚀_Live-allowance.edycu.dev-06b6d4?style=for-the-badge)](https://allowance.edycu.dev)
+  [![For judges](https://img.shields.io/badge/⚖️_For_judges-30--second_path-B3261E?style=for-the-badge)](https://allowance.edycu.dev/judge)
   [![Try it](https://img.shields.io/badge/🧪_Try_it-allowance--demo-f59e0b?style=for-the-badge)](https://github.com/edycutjong/allowance-demo/issues)
   [![Pitch deck](https://img.shields.io/badge/🎞️_Pitch_deck-allowance.edycu.dev%2Fdeck-8C7A4F?style=for-the-badge)](https://allowance.edycu.dev/deck)
   [![Built for Otari](https://img.shields.io/badge/DoraHacks-Devs_Wilding_Online-8b5cf6?style=for-the-badge)](https://dorahacks.io/hackathon/mozilla-devs-wilding/detail)
@@ -137,11 +138,24 @@ Dry run without writing to GitHub: `node --experimental-strip-types scripts/repr
 ## 🧪 Testing & CI
 
 ```bash
-npm test          # 94 tests, node:test
-npm run typecheck # tsc --noEmit
+npm test               # 100 tests, node:test (unit, regression, property)
+npm run test:property  # the verdict property test alone: 25,000 generated sandbox runs
+npm run typecheck      # tsc --noEmit
+npm run e2e            # Playwright: landing, deck and /judge, desktop + mobile
+npm run e2e:live       # the same suite against https://allowance.edycu.dev
 ```
 
-CI runs the tests and a typecheck on every push, deploys the `otari` branch to Vercel, and smoke-tests `/api/health`.
+- **Property test of the verdict.** `test/verdict-property.test.ts` feeds 25,000 generated sandbox runs (random stdout, stderr, exit codes, earlier runs, non-sandbox tool calls) to `verdictFrom`. In every one, **Reproduced** came only from a failed run with the marker's AssertionError in stderr, **Not reproduced** only from a clean exit with `NOT REPRODUCED`, the marker printed to stdout never counted, and only the last sandbox run decided.
+- **Regression tests are named for the defect they pin**, including the bypasses outside reviewers found (`gate: kilo r03 control — print the marker then sys.exit(1) — is refused`).
+- **Permission boundary:** maintainers run on the repository key with no end user; contributors run on the service key as `gh:<login>` (`test/repro.test.ts`).
+
+| Stage | Tool |
+|---|---|
+| 1 · Typecheck + tests | tsc, node:test (100) |
+| 2 · E2E | Playwright, 3 suites, desktop + mobile |
+| 3 · Deploy | Vercel, `otari` branch only, then `/api/health` smoke + live E2E |
+| Security | CodeQL, gitleaks (full history), npm audit, Dependabot |
+| Release | tags from conventional commits on `otari` |
 
 ## 📁 Project Structure
 
@@ -149,14 +163,16 @@ CI runs the tests and a typecheck on every push, deploys the `otari` branch to V
 api/        github.ts (webhook), guard/ (the /validate service), health.ts
 lib/        webhook, triage, repro, script-check, guard, otari, github, github-issue, comment, idempotency
 scripts/    repro.ts (dry-run CLI)
-test/       6 files: webhook, repro, script-check, guard, github, idempotency
+test/       7 files: webhook, repro, script-check, guard, github, idempotency, verdict-property
+e2e/        Playwright: pages, deck, judge-route (*.e2e.ts)
+public/     landing (/), deck (/deck), judge page (/judge)
 evidence/   live-runs.md: measured runs with request ids
 docs/       architecture.svg, OTARI-FEEDBACK.md
 ```
 
 ## 📽️ Demo Materials
 
-[Landing page](https://allowance.edycu.dev/) · [pitch deck](https://allowance.edycu.dev/deck) (10 slides; arrow keys, P for notes) · [DEMO.md](DEMO.md) (the beats, with links) · [docs/OTARI-FEEDBACK.md](docs/OTARI-FEEDBACK.md) (what we hit building on Otari) · [live-runs.md](evidence/live-runs.md)
+[For judges](https://allowance.edycu.dev/judge) ([JUDGE.md](JUDGE.md)) · [Landing page](https://allowance.edycu.dev/) · [pitch deck](https://allowance.edycu.dev/deck) (10 slides; arrow keys, P for notes) · [DEMO.md](DEMO.md) (the beats, with links) · [docs/OTARI-FEEDBACK.md](docs/OTARI-FEEDBACK.md) (what we hit building on Otari) · [live-runs.md](evidence/live-runs.md)
 
 ## 📄 License
 
