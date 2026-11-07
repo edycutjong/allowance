@@ -4,6 +4,8 @@ export const REPRO_WINDOW_MS = 5 * 60 * 1000;
 export const RUNNING_PREFIX = "⏳ Reproducing";
 
 export const marker = (commentId: number) => `<!-- allowance:repro:${commentId} -->`;
+// One triage reply per issue: GitHub redelivers issues.opened on a timeout or by hand.
+export const TRIAGE_MARKER = "<!-- allowance:triage -->";
 
 export type BotComment = { body: string; created_at: string; user?: { type?: string } };
 
@@ -17,4 +19,8 @@ export function reproSkip(comments: BotComment[], triggerCommentId: number, now 
     return c.body.startsWith(RUNNING_PREFIX) && age >= 0 && age < REPRO_WINDOW_MS;
   });
   return inFlight ? { skip: true, why: "in-flight" } : { skip: false };
+}
+
+export function triageSkip(comments: BotComment[]): boolean {
+  return comments.some((c) => c.user?.type === "Bot" && c.body.includes(TRIAGE_MARKER));
 }

@@ -23,7 +23,11 @@ export type ReproConfig = {
   maintainer?: boolean; // maintainers run on the repo pool (bot key), contributors on their own allowance
   mcpServerIds?: string[];
   maxTokens?: number;
+  repairCutoffMs?: number; // no repair turn once this much time has passed (default REPAIR_CUTOFF_MS)
 };
+
+// A repair turn (chat 90 s + run 75 s at worst, lib/otari.ts) must still fit the function's 300 s budget.
+export const REPAIR_CUTOFF_MS = 100_000;
 
 export function systemPrompt(issue: Issue): string {
   const install = `subprocess.run([sys.executable, "-m", "pip", "install", "-q", "git+https://github.com/${issue.repo}"], check=True)`;
@@ -160,6 +164,7 @@ export async function runRepro(
   env: OtariEnv,
   fetchImpl: typeof fetch = fetch,
 ): Promise<ReproResult> {
+  const started = Date.now();
   const body = buildReproRequest(issue, contributor, cfg);
   // contributors: service key + end user (their own allowance); maintainers: the repo pool key
   const key = cfg.maintainer ? env.OTARI_API_KEY : env.OTARI_SERVICE_KEY;
@@ -183,6 +188,7 @@ export async function runRepro(
     const verdict = verdictFrom(runs);
     const out = `${exec.stdout}\n${exec.stderr}`;
     if (verdict.kind !== "inconclusive" || attempt === 1 || !SETUP_HINT.test(out)) break;
+    if (Date.now() - started > (cfg.repairCutoffMs ?? REPAIR_CUTOFF_MS)) break;
     // One repair turn: show the model the sandbox error, never the verdict logic.
     const repair: Record<string, unknown> = {
       ...body,

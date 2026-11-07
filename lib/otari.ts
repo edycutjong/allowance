@@ -9,6 +9,12 @@ export type OtariEnv = {
 
 export const baseUrl = (env: Pick<OtariEnv, "OTARI_BASE_URL">) => env.OTARI_BASE_URL ?? "https://api.otari.ai/api/v1";
 
+// Per-call ceilings, sized so one /repro (write, run, one repair, run) fits the function's 300 s budget;
+// lib/repro.ts skips the repair turn once REPAIR_CUTOFF_MS has passed. Observed: a write turn 5-40 s, a run 3-15 s.
+export const CHAT_TIMEOUT_MS = 90_000;
+export const EXEC_TIMEOUT_MS = 75_000;
+const READ_TIMEOUT_MS = 10_000;
+
 export type ToolCall = {
   id: string;
   type: string; // code_execution | web_fetch | web_search | mcp ...
@@ -75,6 +81,7 @@ export async function chat(
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(CHAT_TIMEOUT_MS),
   });
   const trace = readTrace(r.headers);
   const text = await r.text();
@@ -126,6 +133,7 @@ export async function getEndUser(
 ): Promise<EndUser | null> {
   const r = await fetchImpl(`${baseUrl(env)}/end-users?external_id=${encodeURIComponent(externalId)}`, {
     headers: { Authorization: `Bearer ${env.OTARI_SERVICE_KEY}` },
+    signal: AbortSignal.timeout(READ_TIMEOUT_MS),
   });
   if (!r.ok) throw new Error(`end-users ${r.status}`);
   const list = (await r.json()) as EndUser[];
@@ -138,6 +146,7 @@ export async function getEndUserBudgets(
 ): Promise<EndUserBudget[]> {
   const r = await fetchImpl(`${baseUrl(env)}/end-user-budgets`, {
     headers: { Authorization: `Bearer ${env.OTARI_SERVICE_KEY}` },
+    signal: AbortSignal.timeout(READ_TIMEOUT_MS),
   });
   if (!r.ok) throw new Error(`end-user-budgets ${r.status}`);
   return (await r.json()) as EndUserBudget[];
@@ -172,6 +181,7 @@ export async function executeCode(
       method: "POST",
       headers: { Authorization: `Bearer ${env.OTARI_SERVICE_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify(endUser ? { code, language: "python", user: endUser } : { code, language: "python" }),
+      signal: AbortSignal.timeout(EXEC_TIMEOUT_MS),
     });
     const requestId = r.headers.get("otari-request-id");
     const j: any = await r.json().catch(() => ({}));
@@ -202,7 +212,10 @@ export async function getPool(
   ceilingUsd = 5,
   fetchImpl: typeof fetch = fetch,
 ): Promise<Pool> {
-  const r = await fetchImpl(`${baseUrl(env)}/end-users?limit=1000`, { headers: { Authorization: `Bearer ${env.OTARI_SERVICE_KEY}` } });
+  const r = await fetchImpl(`${baseUrl(env)}/end-users?limit=1000`, {
+    headers: { Authorization: `Bearer ${env.OTARI_SERVICE_KEY}` },
+    signal: AbortSignal.timeout(READ_TIMEOUT_MS),
+  });
   if (!r.ok) throw new Error(`end-users ${r.status}`);
   const list = (await r.json()) as Pick<EndUser, "spend" | "reserved">[];
   return { spentToday: list.reduce((n, u) => n + (u.spend ?? 0), 0), users: list.length, ceilingUsd };

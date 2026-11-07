@@ -178,3 +178,20 @@ export function welcomeComment(login: string, t: { kind: string; has_repro_steps
 
 export const RUNNING = (login: string, triggerId?: number) =>
   `${RUNNING_PREFIX} for @${login} in a sandbox… this comment will update.${triggerId == null ? "" : "\n" + marker(triggerId)}`;
+
+// The placeholder's last state when a /repro throws (timeout, network, GitHub error). Only the error's
+// name is shown: messages can carry request paths and bodies.
+export function failedComment(login: string, e: unknown): string {
+  const name = e instanceof Error ? e.name : "Error";
+  const timedOut = name === "TimeoutError" || name === "AbortError";
+  return [
+    "### ⚠️ Could not finish",
+    "",
+    timedOut
+      ? "A call to Otari or GitHub did not answer in time, so there is no verdict."
+      : "Allowance hit an error before it reached a verdict, so there is no verdict.",
+    `@${login} can comment \`/repro\` again to retry.`,
+    "",
+    `<sub>${name}</sub>`,
+  ].join("\n");
+}

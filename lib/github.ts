@@ -15,12 +15,15 @@ export function appJwt(appId: string, privateKeyPem: string, nowSec = Math.floor
 }
 
 const API = "https://api.github.com";
+// GitHub answers in well under a second; a hung call must fail inside the function's 300 s budget.
+const GITHUB_TIMEOUT_MS = 15_000;
 const baseHeaders = { Accept: "application/vnd.github+json", "User-Agent": "allowance-bot", "X-GitHub-Api-Version": "2022-11-28" };
 
 export async function installationToken(appId: string, pem: string, installationId: number, fetchImpl: typeof fetch = fetch) {
   const r = await fetchImpl(`${API}/app/installations/${installationId}/access_tokens`, {
     method: "POST",
     headers: { ...baseHeaders, Authorization: `Bearer ${appJwt(appId, pem)}` },
+    signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
   });
   if (!r.ok) throw new Error(`installation token ${r.status}`);
   return ((await r.json()) as { token: string }).token;
@@ -41,6 +44,7 @@ export class Repo {
       method,
       headers: { ...baseHeaders, Authorization: `Bearer ${this.token}`, "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
     });
     if (!r.ok) throw new Error(`GitHub ${method} ${path} -> ${r.status}: ${(await r.text()).slice(0, 200)}`);
     return r.status === 204 ? null : r.json();
@@ -49,8 +53,11 @@ export class Repo {
   comment(issue: number, body: string) {
     return this.call("POST", `/issues/${issue}/comments`, { body }) as Promise<{ id: number; html_url: string }>;
   }
-  async listComments(issue: number): Promise<{ id: number; body: string; created_at: string; user?: { type?: string } }[]> {
-    return (await this.call("GET", `/issues/${issue}/comments?per_page=100`)) as any;
+  // `since` (ISO time) limits the page to comments updated at or after it, so a long thread cannot push
+  // the newest bot comments past the first 100.
+  async listComments(issue: number, since?: string): Promise<{ id: number; body: string; created_at: string; user?: { type?: string } }[]> {
+    const q = since ? `&since=${encodeURIComponent(since)}` : "";
+    return (await this.call("GET", `/issues/${issue}/comments?per_page=100${q}`)) as any;
   }
   editComment(id: number, body: string) {
     return this.call("PATCH", `/issues/comments/${id}`, { body });
