@@ -33,3 +33,10 @@ Unit tests: `test/idempotency.test.ts`.
 
 `scripts/repro.ts` on issue #6 as the contributor end user `demo-gus` (service key, per-user allowance):
 Reproduced in 13.3 s, model $0.0035 + sandbox ×1, request `fb8e5eb1-1309-4b85-b8ff-89664915c096`, 1 attempt, no fallback.
+
+## Maintainer triage footer (issue #7)
+
+https://github.com/edycutjong/allowance-demo/issues/7 · opened by the repository owner. The triage welcome footer reads
+"is a maintainer: charged to the repository pool, not a contributor allowance · repository pool: $0.29 spent today by 19
+contributors, ceiling $5.00/month (Otari key budget)", triage by `meta.llama3-3-70b-instruct-v1:0` on bedrock,
+request `db089b2e-a84e-4bc3-8ece-6d74dfe0a5d1`. Before this fix the owner's issues showed a contributor allowance of `$0.0000 of $0.05`.
