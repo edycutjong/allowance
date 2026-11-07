@@ -11,8 +11,10 @@ export const baseUrl = (env: Pick<OtariEnv, "OTARI_BASE_URL">) => env.OTARI_BASE
 
 // Per-call ceilings. lib/repro.ts also holds one deadline for the whole job (JOB_BUDGET_MS) and gives each call
 // only the time left, so retries and a repair turn can never add up past the function's 300 s.
-// Observed: a write turn 5-40 s, a run 3-15 s.
-export const CHAT_TIMEOUT_MS = 90_000;
+// Observed: a write turn 5 s to over 90 s (tool loop), a run 3-15 s.
+// A write turn runs Otari's tool loop (MCP reads, web fetch: up to max_tool_iterations model round trips);
+// live on #6 (screenshot + 5 MCP calls) it outran 90 s. 150 s + a 75 s run still fit the 240 s job deadline.
+export const CHAT_TIMEOUT_MS = 150_000;
 export const EXEC_TIMEOUT_MS = 75_000;
 const READ_TIMEOUT_MS = 10_000;
 
