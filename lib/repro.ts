@@ -28,8 +28,13 @@ export type ReproConfig = {
   revision?: string; // commit sha the install is pinned to (default branch head, read by the webhook)
 };
 
-// A repair turn (chat 90 s + run 75 s at worst, lib/otari.ts) must still fit the function's 300 s budget.
-export const REPAIR_CUTOFF_MS = 100_000;
+// One deadline for the model + sandbox work of a /repro: 300 s function budget minus a minute for the GitHub
+// reads/writes around it. Every call gets only the time left (codex r04: 89+9+89+74+74 s was possible).
+export const JOB_BUDGET_MS = 240_000;
+// No repair turn unless this much time is left for a repair chat and its run.
+export const REPAIR_MIN_LEFT_MS = 100_000;
+/** @deprecated kept for callers that pass repairCutoffMs: no repair once this much time has passed */
+export const REPAIR_CUTOFF_MS = JOB_BUDGET_MS - REPAIR_MIN_LEFT_MS;
 
 export function systemPrompt(issue: Issue): string {
   const install = `subprocess.run([sys.executable, "-m", "pip", "install", "-q", "git+https://github.com/${issue.repo}"], check=True)`;
@@ -130,8 +135,10 @@ export function verdictFrom(calls: ToolCall[]): Verdict {
   if (failed && exc?.type === "AssertionError" && exc.message.startsWith(MARKER)) {
     return { kind: "reproduced", reason: exc.message.trim(), run: last, runs: runs.length };
   }
-  const stdoutLines = (last.stdout ?? "").split("\n").map((l) => l.trim());
-  if (!failed && stdoutLines.includes("NOT REPRODUCED")) {
+  // the script's last word on stdout (pip notices aside) must be NOT REPRODUCED
+  const pipNoise = /^(WARNING: Running pip|\[notice\]|Successfully installed |Requirement already satisfied)/;
+  const stdoutLines = (last.stdout ?? "").split("\n").map((l) => l.trim()).filter((l) => l && !pipNoise.test(l));
+  if (!failed && stdoutLines[stdoutLines.length - 1] === "NOT REPRODUCED") {
     return { kind: "not_reproduced", reason: "the script asserting the expected behaviour passed", run: last, runs: runs.length };
   }
   if (failed && exc?.type === "RuntimeError" && exc.message.startsWith("SETUP:")) {
@@ -194,12 +201,13 @@ export async function runRepro(
   fetchImpl: typeof fetch = fetch,
 ): Promise<ReproResult> {
   const started = Date.now();
+  const deadline = started + JOB_BUDGET_MS;
   const body = buildReproRequest(issue, contributor, cfg);
   // contributors: service key + end user (their own allowance); maintainers: the repo pool key
   const key = cfg.maintainer ? env.OTARI_API_KEY : env.OTARI_SERVICE_KEY;
   const execEnv = { ...env, OTARI_SERVICE_KEY: key };
   const endUser = cfg.maintainer ? null : endUserId(contributor);
-  let res = await chat(key, body, env, fetchImpl);
+  let res = await chat(key, body, env, fetchImpl, deadline - Date.now());
   if (!res.ok) return { kind: "refused", res };
   let modelCost = res.costUsd;
   const runs: ToolCall[] = [];
@@ -224,7 +232,8 @@ export async function runRepro(
     }
     keep = assertionKey(checked.facts);
     const script = pinRevision(raw!, issue.repo, cfg.revision);
-    const exec = await executeCode(script, endUser, execEnv, fetchImpl);
+    if (deadline - Date.now() < 5_000) break; // no time left for a run; the result says what happened so far
+    const exec = await executeCode(script, endUser, execEnv, fetchImpl, deadline);
     // A refusal (budget, auth) is final. A sandbox that is down after its retry is not a verdict either:
     // say "could not run" instead of dressing it up as Inconclusive, unless an earlier run already decided.
     if (exec.error && (exec.httpStatus < 500 || !runs.length)) return { kind: "refused", res: exec.error, modelCostUsd: modelCost };
@@ -232,20 +241,22 @@ export async function runRepro(
     runs.push(execToToolCall(script, exec));
     const verdict = verdictFrom(runs);
     if (verdict.kind !== "inconclusive" || attempt === 1 || !repairable(exec.stderr)) break;
-    if (Date.now() - started > (cfg.repairCutoffMs ?? REPAIR_CUTOFF_MS)) break;
+    if (Date.now() - started > (cfg.repairCutoffMs ?? REPAIR_CUTOFF_MS) || deadline - Date.now() < REPAIR_MIN_LEFT_MS) break;
     // One repair turn: show the model the sandbox error, never the verdict logic. The request keeps its
     // guardrail: the sandbox output is untrusted text (the package under test prints it), so it is
     // screened like the issue was before the coder reads it.
-    const out = `${exec.stdout}\n${exec.stderr}`;
+    // Only the line that ended the run, clipped: a probe (194e59da) showed Otari screens this message, yet
+    // Qwen3Guard passed #5's injection once it was framed as a ModuleNotFoundError. Less quoted text, less to slip.
+    const lastErr = (exec.stderr.split("\n").map((l) => l.trim()).filter(Boolean).pop() ?? `return code ${exec.returnCode}`).slice(0, 300);
     const repair: Record<string, unknown> = {
       ...body,
       messages: [
         ...(body.messages as unknown[]),
         { role: "assistant", content: res.content },
-        { role: "user", content: "The script failed to set up in the sandbox. Fix only the setup (imports, install); keep the call and the assertion exactly as they are.\n```\n" + out.slice(-1500) + "\n```" },
+        { role: "user", content: "The script failed to set up in the sandbox. Fix only the setup (imports, install); keep every other line exactly as it is. The run ended with:\n```\n" + lastErr + "\n```" },
       ],
     };
-    const next = await chat(key, repair, env, fetchImpl);
+    const next = await chat(key, repair, env, fetchImpl, deadline - Date.now() - 30_000);
     if (!next.ok) {
       // e.g. budget_exceeded or the guard blocking the sandbox output: say so instead of a silent Inconclusive
       repairNote = `the repair turn was refused (Otari ${next.status}${next.code ? " " + next.code : ""})`;

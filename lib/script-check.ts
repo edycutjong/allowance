@@ -23,14 +23,19 @@ const STDLIB = new Set(
 const FORBIDDEN: [RegExp, string][] = [
   [/\b(sys\.exit|os\._exit|os\.kill|os\.abort|exit|quit)\s*\(|\bSystemExit\b|\bctypes\b|\bsignal\.(raise_signal|alarm)\b/, "calls an exit function"],
   [/\bsys\.(stderr|stdout|__stderr__|__stdout__)\b|\bfile\s*=\s*sys\.|\bos\.(write|dup2|fdopen)\s*\(/, "writes to the output streams directly"],
-  [/\bexcept\s*(:|\(?\s*(AssertionError|Exception|BaseException)\b)/, "catches the assertion (catch-all except)"],
+  // a catch-all, the assertion itself, or an import failure (a broken install must fail the run, not go green)
+  [/^\s*except\s*:|^\s*except\b[^:\n]*\b(AssertionError|Exception|BaseException|ImportError|ModuleNotFoundError)\b/m, "catches the assertion or an import error"],
   [/\b(exec|eval|compile)\s*\(|__import__\s*\(/, "runs dynamic code"],
+  // the function under test must come from the installed repository: nothing else installed, written or put on the path
+  [/\bopen\s*\(|\.write_text\s*\(|\.write_bytes\s*\(|\bsys\.path\b|\bimportlib\b|\bsite\b\.|\bos\.(system|popen|exec\w*|spawn\w*)\s*\(|\bPYTHONPATH\b/, "writes files or changes the import path"],
 ];
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const indent = (l: string) => l.length - l.trimStart().length;
 
-export type ScriptFacts = { symbol: string; condition: string; raise: string };
+// `body`: the test itself (every line but comments, imports and the install), with the called project
+// function written as § — a repair may change which module/function name is imported, nothing else.
+export type ScriptFacts = { symbol: string; condition: string; raise: string; body: string };
 
 export function installPattern(repo: string): RegExp {
   // git+https://github.com/<repo> then an optional @ref, ending at a quote, whitespace or .git
@@ -43,6 +48,12 @@ export function checkScript(script: string, repo: string, issueText: string): { 
   const body = code.join("\n");
 
   if (!/pip/.test(body) || !installPattern(repo).test(body)) return { problem: `the script does not pip-install ${repo} from GitHub` };
+  const subprocessLines = code.filter((l) => /\bsubprocess\.\w+\s*\(|\bpip\b/.test(l));
+  if (subprocessLines.length !== 1 || !installPattern(repo).test(subprocessLines[0])) {
+    return { problem: "the script may run exactly one subprocess: the pip install of this repository" };
+  }
+  const installLine = subprocessLines[0];
+  if (!/\bcheck\s*=\s*True\b/.test(installLine)) return { problem: "the pip install must use check=True (a failed install must fail the run)" };
   for (const [re, why] of FORBIDDEN) if (re.test(body)) return { problem: `the script ${why}` };
 
   // 2. imports: from X import a, b as c  |  import X
@@ -66,13 +77,13 @@ export function checkScript(script: string, repo: string, issueText: string): { 
   const tokens = new Set(issueText.match(/[A-Za-z_]\w*/g) ?? []);
   const mentioned = (s: string) =>
     tokens.has(s) || [...tokens].some((t) => (t.length >= 4 && s.startsWith(t + "_")) || (s.length >= 4 && t.startsWith(s + "_")));
-  const calls: { symbol: string; re: RegExp }[] = [];
+  const calls: { symbol: string; re: RegExp; token: RegExp }[] = [];
   for (const [local, original] of names) {
     if (new RegExp(`\\b${escape(local)}\\s*\\(`).test(body) && (mentioned(original) || mentioned(local))) {
-      calls.push({ symbol: original, re: new RegExp(`\\b${escape(local)}\\s*\\(`) });
+      calls.push({ symbol: original, re: new RegExp(`\\b${escape(local)}\\s*\\(`), token: new RegExp(`\\b${escape(local)}\\b(?=\\s*\\()`, "g") });
     }
     for (const m of body.matchAll(new RegExp(`\\b${escape(local)}\\.(\\w+)\\s*\\(`, "g"))) {
-      if (mentioned(m[1])) calls.push({ symbol: m[1], re: new RegExp(`\\b${escape(local)}\\.${escape(m[1])}\\s*\\(`) });
+      if (mentioned(m[1])) calls.push({ symbol: m[1], re: new RegExp(`\\b${escape(local)}\\.${escape(m[1])}\\s*\\(`), token: new RegExp(`\\b${escape(local)}\\.${escape(m[1])}\\b(?=\\s*\\()`, "g") });
     }
   }
   if (!calls.length) return { problem: "the script never calls a project function that the issue names" };
@@ -96,7 +107,7 @@ export function checkScript(script: string, repo: string, issueText: string): { 
     const t = l.trim();
     if (/^assert\s/.test(t)) {
       if (!usesResult(t.slice(0, t.indexOf(","))) || !t.includes(",")) return { problem: "the REPRODUCED assert does not test the call's result" };
-      facts ??= { symbol: calls[0].symbol, condition: t.slice(0, t.indexOf(",")).trim(), raise: t };
+      facts ??= { symbol: calls[0].symbol, condition: t.slice(0, t.indexOf(",")).trim(), raise: t, body: "" };
       continue;
     }
     if (!/^raise\s+AssertionError\s*\(/.test(t)) return { problem: "REPRODUCED appears outside a raise AssertionError" };
@@ -106,13 +117,27 @@ export function checkScript(script: string, repo: string, issueText: string): { 
     const header = j >= 0 ? code[j].trim() : "";
     if (indent(l) === 0 || !/^(if|elif)\s.+:$/.test(header)) return { problem: "the REPRODUCED raise is not guarded by an if on the result" };
     if (!usesResult(header)) return { problem: "the condition guarding REPRODUCED does not use the call's result" };
-    facts ??= { symbol: calls[0].symbol, condition: header, raise: t };
+    facts ??= { symbol: calls[0].symbol, condition: header, raise: t, body: "" };
   }
-  return { facts: facts! };
+
+  // NOT REPRODUCED: printed exactly once, unconditionally, after every REPRODUCED line
+  const greens = code.map((l, i) => [l, i] as const).filter(([l]) => /\bprint\s*\(\s*["']NOT REPRODUCED["']\s*\)/.test(l));
+  if (greens.length !== 1 || indent(greens[0][0]) !== 0 || greens[0][1] < markerLines[markerLines.length - 1][1]) {
+    return { problem: 'the script must end with one unconditional print("NOT REPRODUCED")' };
+  }
+  if (code.some((l) => l.includes("NOT REPRODUCED") && l !== greens[0][0])) return { problem: "NOT REPRODUCED appears outside the final print" };
+
+  const isSetup = (l: string) => /^\s*(from\s+[\w.]+\s+import\b|import\s)/.test(l) || installPattern(repo).test(l) || l.trim() === "";
+  const testBody = code
+    .filter((l) => !isSetup(l))
+    .map((l) => calls.reduce((x, c) => x.replace(c.token, "§"), l.trimEnd()))
+    .join("\n");
+  return { facts: { ...facts!, body: testBody } };
 }
 
-// The assertion the repair turn must keep: the guarding condition and the raise, whitespace-normalised.
-export const assertionKey = (f: ScriptFacts) => `${f.condition}=>${f.raise}`.replace(/\s+/g, "");
+
+// What a repair turn must keep byte for byte (string literals included): the whole test body.
+export const assertionKey = (f: ScriptFacts) => f.body;
 
 // Pin the install to the commit the verdict is about.
 export function pinRevision(script: string, repo: string, sha: string | undefined): string {

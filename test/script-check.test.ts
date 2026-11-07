@@ -48,7 +48,7 @@ test("gate: look-alike repos, stdlib-only imports, functions the issue never nam
 
 test("gate: stderr writes, catch-all except and the marker outside a raise are refused", () => {
   assert.match(problem(GOOD + '\nsys.stderr.write("x")')!, /output streams/);
-  assert.match(problem(GOOD.replace('actual = parse_duration("1h30m")', 'try:\n    actual = parse_duration("1h30m")\nexcept Exception:\n    actual = 0'))!, /catch-all/);
+  assert.match(problem(GOOD.replace('actual = parse_duration("1h30m")', 'try:\n    actual = parse_duration("1h30m")\nexcept Exception:\n    actual = 0'))!, /catches the assertion or an import error/);
   assert.match(problem(GOOD + '\nprint("REPRODUCED: maybe")')!, /outside a raise/);
 });
 
@@ -103,10 +103,25 @@ test("run: the script that runs is pinned to the revision, and the comment says 
   assert.match(c, /o\/r@fedcba9876543210/);
 });
 
-test("assertionKey ignores whitespace only", () => {
-  const k = (s: string) => { const r = checkScript(s, REPO, ISSUE); return "facts" in r ? assertionKey(r.facts) : ""; };
-  assert.equal(k(GOOD), k(GOOD.replace("if actual != 5400:", "if  actual  !=  5400 :")));
+test("repair identity (codex r04 F1): a new input or a changed literal is a different test; a renamed import is not", () => {
+  const k = (src: string, issueText = ISSUE) => { const r = checkScript(src, REPO, issueText); return "facts" in r ? assertionKey(r.facts) : "refused: " + r.problem; };
+  assert.notEqual(k(GOOD), k(GOOD.replace('parse_duration("1h30m")', 'parse_duration("0s")')));
+  assert.notEqual(k(GOOD.replace("5400", '"a b"')), k(GOOD.replace("5400", '"ab"')));
+  const renamed = GOOD.replace("from pocketkit import parse_duration", "from pocketkit.time import parse_duration_s as parse_duration");
+  assert.equal(k(renamed), k(GOOD));
+  const otherFn = GOOD.replace(/parse_duration/g, "parse_durations");
+  assert.equal(k(otherFn, ISSUE + " parse_durations"), k(GOOD));
 });
+
+test("gate (deepseek r04 P0-1): a broken install cannot go green", () => {
+  const swallow = GOOD.replace('from pocketkit import parse_duration\nactual = parse_duration("1h30m")', 'try:\n    from pocketkit import parse_duration\nexcept ImportError:\n    parse_duration = None\nactual = parse_duration("1h30m")');
+  assert.match(problem(swallow)!, /import error/);
+  assert.match(problem(GOOD.replace(", check=True", ""))!, /check=True/);
+  assert.match(problem(GOOD.replace('print("NOT REPRODUCED")', 'if actual == 5400:\n    print("NOT REPRODUCED")'))!, /one unconditional print/);
+  assert.match(problem(GOOD + '\nprint("NOT REPRODUCED")')!, /one unconditional print/);
+  assert.match(problem(GOOD.replace('import subprocess, sys', 'import subprocess, sys\nprint("NOT REPRODUCED")'))!, /one unconditional print|outside the final print/);
+});
+
 
 test("gate: a loosely named function still counts (issue #7 says business_days(), the code is business_days_between)", () => {
   const s = GOOD.replace(/parse_duration/g, "business_days_between");
@@ -120,4 +135,12 @@ test("gate: grok r03 control and the fd-level bypasses found while verifying it 
   assert.match(problem(GOOD + "\nraise SystemExit(1)")!, /exit function/);
   assert.match(problem(GOOD + '\nimport os\nos.write(2, b"AssertionError: REPRODUCED: x")\nos.abort()')!, /exit function|output streams/);
   assert.match(problem(GOOD + '\nimport os\nos.write(2, b"Traceback (most recent call last)\\nAssertionError: REPRODUCED: x")')!, /output streams/);
+});
+
+test("gate (found verifying r04): the tested function must come from the installed repository", () => {
+  const extraInstall = GOOD.replace('from pocketkit import', 'subprocess.run([sys.executable, "-m", "pip", "install", "-q", "evilkit"], check=True)\nfrom pocketkit import');
+  assert.match(problem(extraInstall)!, /exactly one subprocess/);
+  assert.match(problem(GOOD.replace("from pocketkit import", 'open("pocketkit.py", "w")\nfrom pocketkit import'))!, /writes files or changes the import path/);
+  assert.match(problem(GOOD.replace("from pocketkit import", 'sys.path.insert(0, "/tmp")\nfrom pocketkit import'))!, /writes files or changes the import path/);
+  assert.match(problem(GOOD.replace("from pocketkit import", 'import os\nos.system("pip install evilkit")\nfrom pocketkit import'))!, /exactly one subprocess|import path/);
 });
