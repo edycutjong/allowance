@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Allowance">
+  <path d="M5 7H27A3 3 0 0 1 30 10V12.6A3.4 3.4 0 0 0 30 19.4V22A3 3 0 0 1 27 25H5A3 3 0 0 1 2 22V19.4A3.4 3.4 0 0 0 2 12.6V10A3 3 0 0 1 5 7Z" fill="none" stroke="#FAF8F3" stroke-width="3.8" stroke-linejoin="round"/>
+  <path d="M5 7H27A3 3 0 0 1 30 10V12.6A3.4 3.4 0 0 0 30 19.4V22A3 3 0 0 1 27 25H5A3 3 0 0 1 2 22V19.4A3.4 3.4 0 0 0 2 12.6V10A3 3 0 0 1 5 7Z" fill="#FAF8F3" stroke="#1B1A17" stroke-width="2.2" stroke-linejoin="round"/>
+  <g transform="rotate(-8 18 16)">
+    <rect x="10.5" y="10.6" width="15" height="10.8" rx="1.6" fill="#B3261E"/>
+    <path d="M14.6 14.3H21.4M14.6 17.7H21.4" stroke="#FAF8F3" stroke-width="1.7" stroke-linecap="round"/>
+    <path d="M19.3 11.9L16.7 20.1" stroke="#FAF8F3" stroke-width="1.6" stroke-linecap="round"/>
+  </g>
+</svg>

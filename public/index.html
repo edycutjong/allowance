@@ -3,20 +3,654 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Allowance</title>
-<meta name="description" content="A GitHub bot that reproduces bug reports in a sandbox, and gives every contributor a small daily allowance of model spend.">
+<title>Allowance: the bot that never takes the model's word for it</title>
+<meta name="description" content="A GitHub App on Otari: on /repro an open-weight model writes a test, Otari's sandbox runs it, and the verdict is what the run did. Each outside contributor gets $0.05 a day.">
+<meta name="theme-color" content="#FAF8F3">
+<link rel="canonical" href="https://allowance.edycu.dev/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Allowance">
+<meta property="og:title" content="Allowance: the bot that never takes the model's word for it">
+<meta property="og:description" content="On /repro an open-weight model writes a test, Otari's sandbox runs it, and the verdict is what the run did. $0.05 a day per outside contributor.">
+<meta property="og:url" content="https://allowance.edycu.dev/">
+<meta property="og:image" content="https://allowance.edycu.dev/media/og.png?v=0442177a">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Allowance: an assay certificate stamped REPRODUCED, return code 1">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://allowance.edycu.dev/media/og.png?v=0442177a">
+<link rel="preload" href="/fonts/instrument-serif-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/instrument-serif-400-italic.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-  body { font: 16px/1.55 system-ui, sans-serif; max-width: 40rem; margin: 12vh auto; padding: 0 1.25rem; color: #1c1b19; background: #f6f3ec; }
-  h1 { font-size: 2rem; margin: 0 0 .5rem; }
-  code { font: .95em ui-monospace, monospace; background: #e9e4d8; padding: .1em .35em; border-radius: 3px; }
-  a { color: #8a3b12; }
+@font-face{font-family:"Instrument Serif";src:url(/fonts/instrument-serif-400-normal.woff2) format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Instrument Serif";src:url(/fonts/instrument-serif-400-italic.woff2) format("woff2");font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:"Source Sans 3";src:url(/fonts/source-sans-3-var.woff2) format("woff2");font-weight:200 900;font-style:normal;font-display:swap}
+@font-face{font-family:"IBM Plex Mono";src:url(/fonts/ibm-plex-mono-400-normal.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"IBM Plex Mono";src:url(/fonts/ibm-plex-mono-500-normal.woff2) format("woff2");font-weight:500;font-display:swap}
+@font-face{font-family:"Serif Fallback";src:local("Georgia");size-adjust:88%;ascent-override:96%;descent-override:26%}
+
+:root {
+  --bg:      #FAF8F3;
+  --ink:     #1B1A17;
+  --muted:   #6B665C;
+  --before:  #8C7A4F;
+  --after:   #B3261E;
+  --rule:    #D9D3C4;
+  --font-display: "Instrument Serif", "Serif Fallback", "Iowan Old Style", Georgia, serif;
+  --font-body:    "Source Sans 3", "Helvetica Neue", Arial, sans-serif;
+  --font-data:    "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --paper:   #FFFDF8;
+  --kraft:   #F1EBDD;
+  --mat:     #1B1A17;
+  --pencil:  #A39C8C;
+}
+*{box-sizing:border-box}
+html{overflow-x:clip;scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 18px/1.6 var(--font-body);
+  background-image:repeating-linear-gradient(to bottom,transparent 0 35px,rgba(217,211,196,.42) 35px 36px);}
+::selection{background:#E8DCC0;color:var(--ink)}
+a{color:inherit;text-decoration-color:var(--before);text-underline-offset:3px;text-decoration-thickness:1px;transition:color .18s ease,text-decoration-color .18s ease}
+a:hover{color:var(--before);text-decoration-color:currentColor}
+:focus-visible{outline:2px solid var(--before);outline-offset:3px;border-radius:2px}
+code,pre,.data{font-family:var(--font-data);font-size:.86em}
+p code,li code,dd code{background:rgba(217,211,196,.45);padding:.06em .32em;border-radius:3px}
+.wrap{width:min(1180px,100% - 48px);margin-inline:auto}
+.lab{font:500 12px/1.4 var(--font-data);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.margin-line{position:fixed;left:max(14px,calc(50% - 640px));top:0;bottom:0;width:1px;background:rgba(179,38,30,.16);pointer-events:none;z-index:0}
+main,header.top,footer{position:relative;z-index:1}
+
+/* nav */
+header.top{border-bottom:1px solid var(--rule);background:rgba(250,248,243,.86);backdrop-filter:blur(6px);position:sticky;top:0;z-index:20}
+header.top .wrap{display:flex;align-items:center;justify-content:space-between;height:64px;gap:20px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font:400 27px/1 var(--font-display)}
+.brand img{width:34px;height:34px}
+nav.links{display:flex;gap:26px;font-size:15.5px}
+nav.links a{text-decoration:none;color:var(--muted)}
+nav.links a:hover{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:12px 18px;border:1px solid var(--ink);color:var(--ink);text-decoration:none;font:600 16px/1 var(--font-body);background:transparent;cursor:pointer;transition:background .18s ease,color .18s ease,transform .18s ease,box-shadow .18s ease}
+.btn:hover{background:var(--ink);color:var(--bg);transform:translateY(-1px);box-shadow:0 6px 0 -2px rgba(27,26,23,.18)}
+.btn:active{transform:translateY(1px);box-shadow:none}
+.btn.solid{background:var(--ink);color:var(--bg)}
+.btn.solid:hover{background:#000;color:#fff}
+.btn.small{padding:9px 14px;font-size:14.5px}
+.btn svg{width:16px;height:16px}
+
+/* hero */
+.hero{padding:72px 0 88px}
+.hero .wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:56px;align-items:center}
+h1{font:400 clamp(50px,6.2vw,96px)/.98 var(--font-display);letter-spacing:-.012em;margin:18px 0 24px;text-wrap:balance}
+h1 em{color:var(--before);font-style:italic}
+.sub{font-size:19.5px;max-width:33em;color:#34312a;margin:0}
+.sub b{color:var(--ink);font-weight:600}
+.ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
+.strip{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:22px;font-size:15px;color:var(--muted)}
+.copy{display:inline-flex;align-items:center;gap:10px;font:500 15px var(--font-data);border:1px dashed var(--before);padding:7px 12px;background:var(--paper);color:var(--ink);cursor:pointer;transition:background .18s ease,border-color .18s ease}
+.copy:hover{background:#fff;border-style:solid}
+.copy:active{transform:translateY(1px)}
+.copy .hint{font:500 11px var(--font-data);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+/* the bench + certificate (signature) */
+.bench{position:relative;background:var(--mat);padding:40px 36px 30px;border-radius:3px;
+  background-image:radial-gradient(520px 300px at 70% 18%,rgba(255,236,196,.13),transparent 70%),
+  linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+  background-size:auto,28px 28px,28px 28px;box-shadow:0 40px 70px -40px rgba(27,26,23,.55)}
+.bench .tag{position:absolute;top:14px;left:36px;right:36px;display:flex;justify-content:space-between;font:500 11px var(--font-data);letter-spacing:.12em;text-transform:uppercase;color:#A39C8C}
+.cert{position:relative;margin:14px 0 0;background:var(--paper);color:var(--ink);transform:rotate(-.6deg);box-shadow:0 2px 0 rgba(0,0,0,.08),0 24px 40px -18px rgba(0,0,0,.6)}
+.cert-hd{display:flex;justify-content:space-between;gap:12px;align-items:baseline;padding:16px 22px;border-bottom:1px solid var(--rule)}
+.cert-hd .k{font:500 11.5px var(--font-data);letter-spacing:.14em;text-transform:uppercase}
+.cert-hd .d{font:400 12.5px var(--font-data);color:var(--muted)}
+.rows{list-style:none;margin:0;padding:0}
+.row{display:grid;grid-template-columns:30px minmax(0,1fr);gap:14px;padding:13px 22px;border-bottom:1px solid var(--rule)}
+.row .n{width:24px;height:24px;border:1px solid var(--muted);border-radius:50%;font:500 11px/22px var(--font-data);text-align:center;color:var(--muted);margin-top:2px}
+.row .k{display:block;font:500 10.5px var(--font-data);letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.row .val{font:400 clamp(18px,1.9vw,25px)/1.25 var(--font-data);background:none;padding:0}
+.row .val.before,.row .claim{color:var(--before)}
+.row .claim{margin:0;font:italic 400 21px/1.25 var(--font-display)}
+.row pre{margin:0;font:400 12.5px/1.55 var(--font-data);white-space:pre-wrap;color:#3b382f}
+.row.decide{min-height:92px;align-content:center}
+.row.decide p{margin:0;font-size:15.5px;line-height:1.35;max-width:8.5em}
+.row.decide p span{color:var(--muted)}
+.stamp{position:absolute;right:16px;bottom:60px;display:flex;align-items:center;gap:14px;padding:5px 14px 6px 16px;color:var(--after);
+  border:3px solid var(--after);outline:1.5px solid var(--after);outline-offset:3px;border-radius:5px;transform:rotate(-3deg);mix-blend-mode:multiply;
+  background:radial-gradient(circle at 30% 40%,rgba(179,38,30,.06),transparent 60%)}
+.stamp .w{font:italic 400 clamp(28px,2.9vw,40px)/1 var(--font-display);letter-spacing:.01em}
+.stamp .rc{display:grid;justify-items:center;border-left:1.5px solid var(--after);padding-left:12px}
+.stamp .rc small{font:500 9.5px var(--font-data);letter-spacing:.14em;text-transform:uppercase}
+.stamp .rc b{font:500 26px/1 var(--font-data)}
+.cert-ft{padding:12px 22px 14px;font:400 12px/1.5 var(--font-data);color:var(--muted);overflow-wrap:anywhere}
+.cert-ft .k{font-weight:500;letter-spacing:.12em;text-transform:uppercase;font-size:10.5px}
+.prov{margin:14px 2px 0;font-size:13.5px;color:#A39C8C}
+.prov a{color:#D9D3C4}
+.prov a:hover{color:#fff}
+
+/* load choreography — content is visible by default; this only animates it in */
+@media (prefers-reduced-motion:no-preference){
+  .hero .reveal{animation:rise .7s cubic-bezier(.2,.7,.2,1) both}
+  .hero .reveal:nth-child(2){animation-delay:.08s}.hero .reveal:nth-child(3){animation-delay:.16s}
+  .hero .reveal:nth-child(4){animation-delay:.24s}.hero .reveal:nth-child(5){animation-delay:.32s}
+  .cert .row{animation:ink .5s ease-out both}
+  .cert .row:nth-child(1){animation-delay:.3s}.cert .row:nth-child(2){animation-delay:.5s}
+  .cert .row:nth-child(3){animation-delay:.7s}.cert .row:nth-child(4){animation-delay:.95s}.cert .row:nth-child(5){animation-delay:1.15s}
+  .cert .stamp{animation:slam .42s cubic-bezier(.3,1.5,.5,1) 1.45s both}
+  .cert{animation:thud .25s ease-out 1.72s both}
+  .settled .hero .reveal,.settled .cert .row,.settled .cert .stamp,.settled .cert{animation:none}
+}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes ink{from{opacity:0;clip-path:inset(0 100% 0 0)}to{opacity:1;clip-path:inset(0 0 0 0)}}
+@keyframes slam{0%{opacity:0;transform:rotate(-9deg) scale(1.9)}60%{opacity:1;transform:rotate(-2deg) scale(.95)}100%{opacity:1;transform:rotate(-3deg) scale(1)}}
+@keyframes thud{0%{transform:rotate(-.6deg) translateY(0)}40%{transform:rotate(-.6deg) translateY(2px)}100%{transform:rotate(-.6deg) translateY(0)}}
+
+/* receipts */
+.receipts{background:var(--paper);border-block:1px solid var(--rule)}
+.receipts .wrap{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.rcpt{padding:30px 26px 26px;border-left:1px solid var(--rule)}
+.rcpt:first-child{border-left:0;padding-left:0}
+.rcpt .num{font:500 clamp(34px,3.6vw,50px)/1 var(--font-data);letter-spacing:-.02em}
+.rcpt .num small{font-size:.5em;color:var(--muted);margin-left:4px}
+.rcpt p{margin:10px 0 8px;font-size:15.5px;line-height:1.4}
+.rcpt .src{font:400 11.5px/1.4 var(--font-data);color:var(--muted);overflow-wrap:anywhere}
+.rcpt .src a{color:var(--muted)}
+
+/* sections */
+section.s{padding:104px 0}
+h2{font:400 clamp(38px,4.4vw,62px)/1.02 var(--font-display);letter-spacing:-.01em;margin:12px 0 18px;max-width:17em;text-wrap:balance}
+h2 em{color:var(--before)}
+.lede{max-width:40em;color:#34312a;margin:0 0 44px;font-size:18.5px}
+
+/* demo pair */
+.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;align-items:start}
+.shot{margin:0;border:1px solid var(--rule);background:#fff;box-shadow:0 18px 40px -26px rgba(27,26,23,.45)}
+.shot img{display:block;width:100%;height:auto}
+.shot figcaption,.term-cap{font-size:14px;color:var(--muted);padding:12px 4px 0;line-height:1.45}
+.term{background:var(--mat);color:#E9E4D6;border-radius:4px;overflow:hidden;box-shadow:0 18px 40px -26px rgba(27,26,23,.6)}
+.term-bar{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #2E2C27;font:500 11.5px var(--font-data);letter-spacing:.08em;color:#A39C8C}
+.term-bar button{font:500 11px var(--font-data);letter-spacing:.1em;text-transform:uppercase;color:#E9E4D6;background:none;border:1px solid #4A473F;padding:5px 10px;cursor:pointer;transition:border-color .18s ease,background .18s ease}
+.term-bar button:hover{border-color:#E9E4D6;background:#2A2824}
+.term pre{margin:0;padding:18px 18px 22px;font:400 13px/1.7 var(--font-data);white-space:pre-wrap;overflow-wrap:anywhere;min-height:300px}
+.term .c{color:#8F897B}.term .err{color:#F0B4A8}.term .hit{color:#fff}
+.term .ln{display:block}
+.term.typing .ln{visibility:hidden}.term.typing .ln.on{visibility:visible}
+.term .caret{display:inline-block;width:.6em;height:1.05em;background:#E9E4D6;vertical-align:-2px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.verdict-line{display:flex;align-items:center;gap:12px;margin:0;padding:14px 18px;border-top:1px solid #2E2C27;font:500 13px var(--font-data);color:#E9E4D6}
+.mini-stamp{font:italic 400 22px/1 var(--font-display);color:#E8796E;border:2px solid #E8796E;padding:2px 9px 3px;transform:rotate(-3deg);display:inline-block}
+
+/* passbook */
+.band{background:var(--kraft);border-block:1px solid var(--rule);background-image:repeating-linear-gradient(to bottom,transparent 0 35px,rgba(140,122,79,.13) 35px 36px)}
+.pb-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,.75fr);gap:32px;align-items:start}
+.passbook{background:var(--paper);border:1px solid var(--rule);box-shadow:inset 22px 0 0 #EFE8D8,0 22px 46px -30px rgba(27,26,23,.5);padding:26px 30px 24px 52px;border-radius:2px 10px 10px 2px}
+.pb-hd{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:baseline;border-bottom:2px solid var(--ink);padding-bottom:10px}
+.pb-hd b{font:400 26px var(--font-display)}
+.pb-hd span{font:400 12.5px var(--font-data);color:var(--muted)}
+.entries{list-style:none;margin:0;padding:0}
+.entry{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:14px;padding:14px 0;border-bottom:1px dashed var(--rule);align-items:baseline}
+.entry time{font:500 13px var(--font-data);color:var(--muted)}
+.entry .what{font-size:16px;line-height:1.4}
+.entry .what a{white-space:nowrap}
+.entry .bal{font:500 15px var(--font-data);text-align:right;white-space:nowrap}
+.entry .note{display:block;font-size:13.5px;color:var(--muted)}
+.gstamp{display:inline-block;font:italic 400 17px/1 var(--font-display);color:var(--after);border:1.5px solid var(--after);padding:1px 7px 2px;transform:rotate(-4deg);margin-right:6px}
+.meter{margin-top:22px}
+.meter .lab{display:flex;justify-content:space-between}
+.meter-bar{height:16px;margin-top:8px;border:1px solid var(--ink);background:repeating-linear-gradient(-45deg,rgba(140,122,79,.32) 0 2px,transparent 2px 7px)}
+.meter .keys{display:flex;gap:18px;margin-top:8px;font:400 12px var(--font-data);color:var(--muted)}
+.meter .keys i{display:inline-block;width:14px;height:10px;border:1px solid var(--ink);vertical-align:-1px;margin-right:6px}
+.meter .keys .k1 i{background:var(--before)}.meter .keys .k2 i{background:repeating-linear-gradient(-45deg,rgba(140,122,79,.32) 0 2px,transparent 2px 5px)}
+.meter-bar i{display:block;height:100%;width:0;background:var(--before);transition:width 1.1s cubic-bezier(.4,0,.2,1)}
+.pb-side{display:grid;gap:18px}
+.slip{background:var(--paper);border:1px solid var(--rule);padding:20px 22px;font-size:15.5px;line-height:1.5}
+.slip h3{font:400 24px/1.15 var(--font-display);margin:6px 0 8px}
+.slip p{margin:0 0 8px}.slip p:last-child{margin:0}
+.slip .data{font-size:14px}
+
+/* four verdicts — asymmetric bento */
+.bento{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:18px}
+.v{position:relative;background:var(--paper);border:1px solid var(--rule);padding:24px 24px 22px;display:flex;flex-direction:column;gap:10px;transition:transform .2s ease,box-shadow .2s ease}
+.v:hover{transform:translateY(-3px);box-shadow:0 18px 30px -22px rgba(27,26,23,.45)}
+.v.big{grid-column:span 4;grid-row:span 2}
+.v.mid{grid-column:span 2}
+.v.wide{grid-column:span 3}
+.v .issue{font:500 12px var(--font-data);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.v h3{font:400 27px/1.12 var(--font-display);margin:0}
+.v p{margin:0;font-size:16px;line-height:1.5}
+.v .vstamp{align-self:flex-start;font:italic 400 25px/1 var(--font-display);color:var(--after);border:2px solid var(--after);outline:1px solid var(--after);outline-offset:2px;border-radius:3px;padding:4px 10px 5px;transform:rotate(-3deg);margin:4px 0 2px}
+.v .vstamp span{font:500 12px var(--font-data);margin-left:8px;vertical-align:3px}
+.v .meta{margin-top:auto;font:400 12px/1.5 var(--font-data);color:var(--muted);overflow-wrap:anywhere}
+.v a.open{font-weight:600;font-size:15px}
+.v.big .cmp{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 18px;margin:8px 0 4px;align-items:baseline}
+.v.big .cmp span{font:500 11px var(--font-data);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.v.big .cmp code{font-size:clamp(17px,1.8vw,24px);background:none;padding:0}
+.v.big .cmp code.b{color:var(--before)}
+.v .script{margin:6px 0 4px;padding:14px 16px;background:var(--mat);color:#E9E4D6;font:400 12px/1.6 var(--font-data);white-space:pre-wrap;overflow-wrap:anywhere;border-radius:3px}
+.v .script .c{color:#8F897B}
+.v img{width:100%;height:auto;border:1px solid var(--rule);display:block}
+.shotcard{margin:0;justify-content:flex-start}
+.shotcard figcaption{display:grid;gap:6px}
+
+/* how it decides */
+.steps{list-style:none;margin:0;padding:0;border-top:2px solid var(--ink)}
+.step{display:grid;grid-template-columns:110px minmax(0,1.1fr) minmax(0,1.4fr) 210px;gap:24px;padding:24px 0;border-bottom:1px solid var(--rule);align-items:baseline;transition:background .2s ease}
+.step:hover{background:rgba(255,253,248,.8)}
+.step .no{display:grid;grid-template-columns:auto auto;align-items:end;gap:0 8px;font:400 46px/1 var(--font-display);color:var(--pencil)}
+.step .no small{grid-column:2;grid-row:1;font:500 10px var(--font-data);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);align-self:start;margin-top:4px}
+.step .no .glyph{grid-row:1/3;width:30px;height:30px;fill:none;stroke:var(--before);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;margin-bottom:6px;transition:transform .25s ease}
+.step:hover .glyph{transform:rotate(-8deg) scale(1.08)}
+.step h3{font:400 28px/1.1 var(--font-display);margin:0}
+.step p{margin:0;font-size:16.5px;line-height:1.5}
+.chip{justify-self:start;font:500 12.5px var(--font-data);border:1px solid var(--before);color:var(--ink);padding:4px 9px;background:var(--paper);overflow-wrap:anywhere}
+.otari{margin-top:40px;display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:32px;align-items:start}
+.otari h3{font:400 30px/1.1 var(--font-display);margin:6px 0 10px}
+.otari p{margin:0;font-size:16px;color:#34312a}
+.feat{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px}
+.feat li{padding:10px 0;border-bottom:1px solid var(--rule);font-size:15.5px;display:flex;justify-content:space-between;gap:12px}
+.feat li span{font:500 11.5px var(--font-data);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.feat li.no{color:var(--muted)}
+.feat li.no span{color:var(--pencil)}
+
+/* honest by design — the dark band */
+.honest{background:var(--mat);color:#E9E4D6;padding:104px 0;background-image:radial-gradient(700px 360px at 85% 0%,rgba(255,236,196,.08),transparent 70%)}
+.honest .lab{color:#A39C8C}
+.honest h2{color:#FAF8F3}
+.honest h2 em{color:#CDB98A}
+.notes{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:0;margin-top:40px;border-top:1px solid #3A3832}
+.note{padding:26px 28px 6px 0;margin-right:28px}
+.note+.note{border-left:1px solid #3A3832;padding-left:28px}
+.note blockquote{margin:0;font:italic 400 clamp(22px,2.1vw,28px)/1.25 var(--font-display);color:#FAF8F3}
+.note cite{display:block;margin-top:14px;font:500 11.5px var(--font-data);letter-spacing:.12em;text-transform:uppercase;font-style:normal;color:#A39C8C}
+.honest .more{margin-top:34px;color:#CFC9BA;font-size:16px;max-width:46em}
+.honest a{color:#FAF8F3}
+
+/* faq */
+.faq{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.4fr);gap:20px 56px;align-items:start}
+.faq h2{margin-top:0}
+.faq-list details:first-of-type{border-top:2px solid var(--ink)}
+details{border-bottom:1px solid var(--rule)}
+summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;gap:20px;align-items:baseline;padding:20px 2px;font:400 25px/1.25 var(--font-display);transition:color .18s ease}
+summary::-webkit-details-marker{display:none}
+summary:hover{color:var(--before)}
+summary::after{content:"+";font:400 22px var(--font-data);color:var(--muted);transition:transform .2s ease}
+details[open] summary::after{transform:rotate(45deg)}
+details .a{padding:0 2px 22px;max-width:44em;font-size:17px;color:#34312a}
+details .a p{margin:0 0 10px}
+
+/* final + footer */
+.final{padding:110px 0 96px;text-align:center}
+.final h2{margin-inline:auto}
+.final .ctas{justify-content:center}
+footer{background:var(--mat);color:#A39C8C;font-size:14.5px}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;padding:30px 0}
+footer a{color:#E9E4D6}
+footer nav{display:flex;flex-wrap:wrap;gap:20px}
+
+@media (max-width:1080px){
+  .step{grid-template-columns:110px minmax(0,1fr);gap:8px 18px}
+  .step p,.step .chip{grid-column:2}
+  .bento{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .v.big{grid-column:span 2;grid-row:auto}.v.mid,.v.wide{grid-column:span 1}
+  .notes{grid-template-columns:1fr}.note{margin:0;padding:24px 0}.note+.note{border-left:0;border-top:1px solid #3A3832;padding-left:0}
+}
+@media (max-width:900px){
+  nav.links{display:none}
+  .hero{padding:36px 0 64px}
+  .hero .wrap{grid-template-columns:minmax(0,1fr);gap:0}
+  .hero-copy{display:contents}
+  .hero-copy .lab{order:1}.hero-copy h1{order:2}.bench{order:3;margin:6px 0 28px}.hero-copy .sub{order:4}.hero-copy .ctas{order:5}.hero-copy .strip{order:6}
+  .receipts .wrap{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rcpt{padding:24px 18px 22px 0;border-left:0;border-top:1px solid var(--rule)}
+  .rcpt:nth-child(-n+2){border-top:0}
+  .rcpt:nth-child(even){padding-left:18px;border-left:1px solid var(--rule)}
+  .pair,.pb-grid,.otari,.faq{grid-template-columns:minmax(0,1fr)}
+  section.s,.honest{padding:72px 0}
+}
+@media (max-width:600px){
+  body{font-size:17px}
+  .wrap{width:calc(100% - 36px)}
+  .margin-line{display:none}
+  .bench{padding:34px 12px 16px;margin-inline:-6px}
+  .bench .tag{left:14px;right:14px;font-size:10px}
+  .row{padding:10px 14px;grid-template-columns:minmax(0,1fr)}
+  .row .n{display:none}
+  .step{grid-template-columns:minmax(0,1fr);gap:10px}
+  .step p,.step .chip{grid-column:auto}
+  .step .no{font-size:38px}
+  .row pre{font-size:11.5px}
+  .row.decide{min-height:0}
+  .cert-hd{padding:12px 14px;flex-direction:column;gap:2px}
+  .cert-ft{padding:10px 14px 12px}
+  .stamp{position:relative;right:auto;bottom:auto;margin:10px 14px 4px;width:max-content}
+  .ctas .btn{flex:1 1 auto;justify-content:center}
+  .bento{grid-template-columns:minmax(0,1fr)}
+  .v.big,.v.mid,.v.wide{grid-column:auto}
+  .entry{grid-template-columns:minmax(0,1fr) auto;gap:4px 12px}
+  .entry time{grid-column:1/-1}
+  .passbook{padding:20px 16px 18px 28px;box-shadow:inset 12px 0 0 #EFE8D8,0 22px 46px -30px rgba(27,26,23,.5)}
+  .feat{grid-template-columns:minmax(0,1fr)}
+  summary{font-size:22px}
+  footer .wrap{flex-direction:column}
+}
+@media print{
+  *{animation:none!important;transition:none!important}
+  header.top{position:static}
+  .bench,.honest,footer{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .term.typing .ln{visibility:visible!important}
+}
 </style>
 </head>
 <body>
+<div class="margin-line" aria-hidden="true"></div>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="Allowance home"><img src="/media/icon.svg" alt="" width="34" height="34">Allowance</a>
+    <nav class="links" aria-label="Sections">
+      <a href="#decides">How it decides</a>
+      <a href="#allowance">The allowance</a>
+      <a href="#verdicts">Verdicts</a>
+      <a href="#honest">Limits</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a class="btn small" href="/deck">Pitch deck</a>
+  </div>
+</header>
+
 <main>
-<h1>Allowance</h1>
-<p>Comment <code>/repro</code> on a bug report. An open-weight model writes a minimal script, Otari's sandbox runs it, and the verdict comes from the exit code. Each contributor spends from an allowance of their own.</p>
-<p>See it working on <a href="https://github.com/edycutjong/allowance-demo/issues">the demo repository's issues</a>.</p>
+<section class="hero" aria-labelledby="h1">
+  <div class="wrap">
+    <div class="hero-copy">
+      <div class="lab reveal">GitHub App · built on Otari · open-weight models only</div>
+      <h1 id="h1" class="reveal">The bot that never takes <em>the model's word</em> for it.</h1>
+      <p class="sub reveal">Comment <code>/repro</code> on a bug report. An open-weight model writes a short test, Otari's sandbox runs it, and the verdict is what the run did. Each outside contributor gets a capped allowance of <b>$0.05 a day</b>, so a stranger can use the model on your repository without ever holding a key.</p>
+      <div class="ctas reveal">
+        <a class="btn solid" href="https://github.com/edycutjong/allowance/tree/otari"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M5.3 4.2 1.5 8l3.8 3.8 1-1L3.5 8l2.8-2.8-1-1Zm5.4 0-1 1L12.5 8l-2.8 2.8 1 1L14.5 8l-3.8-3.8Z"/></svg>Source on GitHub</a>
+        <a class="btn" href="/deck">Pitch deck</a>
+        <a class="btn" href="https://github.com/edycutjong/allowance-demo/issues">Try it on the demo repo</a>
+      </div>
+      <div class="strip reveal">
+        <button class="copy" type="button" data-copy="/repro" aria-label="Copy the /repro command">/repro <span class="hint">copy</span></button>
+        <span>Otari request id in every footer · no database</span>
+      </div>
+    </div>
+
+    <div class="bench">
+      <div class="tag" aria-hidden="true"><span>Specimen · allowance-demo #6</span><span>Otari sandbox</span></div>
+      <figure class="cert" aria-label="Verdict certificate for allowance-demo issue 6: reproduced, return code 1">
+        <div class="cert-hd"><span class="k">Assay certificate</span><span class="d">allowance-demo#6 · installed at 9259e59</span></div>
+        <ol class="rows">
+          <li class="row"><span class="n">1</span><div><span class="k">Claim</span><p class="claim">The chunk function loses the trailing items when the list doesn't divide evenly.</p></div></li>
+          <li class="row"><span class="n">2</span><div><span class="k">Expected · chunk([1, 2, 3, 4, 5], 2)</span><code class="val before">[[1, 2], [3, 4], [5]]</code></div></li>
+          <li class="row"><span class="n">3</span><div><span class="k">Written by the model · Qwen3-Coder 480B Turbo · excerpt</span><pre>actual = list(chunk([1, 2, 3, 4, 5], 2))
+if actual != expected:
+    raise AssertionError(...)</pre></div></li>
+          <li class="row"><span class="n">4</span><div><span class="k">Measured in Otari's sandbox</span><code class="val">[[1, 2], [3, 4]]</code></div></li>
+          <li class="row decide"><span class="n">5</span><div><span class="k">Decided by</span><p>the sandbox run,<br><span>not the model</span></p></div></li>
+        </ol>
+        <div class="stamp" role="img" aria-label="Reproduced, return code 1"><span class="w">Reproduced</span><span class="rc"><small>return code</small><b>1</b></span></div>
+        <div class="cert-ft"><span class="k">Otari request</span> c3709369-eae7-4d55-8c88-dba391c10472 · model $0.0082 + sandbox ×1</div>
+      </figure>
+      <p class="prov">Re-set from allowance-bot's comment on <a href="https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6708001599">allowance-demo#6</a>: values verbatim, script excerpted.</p>
+    </div>
+  </div>
+</section>
+
+<section class="receipts" aria-label="Receipts">
+  <div class="wrap">
+    <div class="rcpt"><div class="num"><span data-count="0.05" data-prefix="$" data-dec="2">$0.05</span></div><p>a day for each outside contributor, on the Otari budget <code>contributor-allowance</code></p><div class="src">README · Per-user budgets</div></div>
+    <div class="rcpt"><div class="num"><span data-count="0.0082" data-prefix="$" data-dec="4">$0.0082</span></div><p>model spend for the #6 verdict, plus one sandbox run</p><div class="src">request c3709369 · <a href="https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6708001599">comment footer</a></div></div>
+    <div class="rcpt"><div class="num"><span data-count="19" data-dec="0">19</span><small>s</small></div><p>from the <code>/repro</code> comment to the verdict on #4</p><div class="src">request b606e6b5 · evidence/live-runs.md</div></div>
+    <div class="rcpt"><div class="num"><span data-count="94" data-dec="0">94</span></div><p>tests passing in <code>node:test</code>, run by CI on every push</p><div class="src">npm test · README · Testing &amp; CI</div></div>
+  </div>
+</section>
+
+<section class="s" id="decides" aria-labelledby="h-decides">
+  <div class="wrap">
+    <div class="lab">The turn</div>
+    <h2 id="h-decides">The model writes the test. <em>The sandbox decides.</em></h2>
+    <p class="lede">The coder model has no code tool. It reads the issue (on #6, with five reads through the workspace's GitHub MCP server), returns a Python script, and stops. Allowance checks the script, runs it with <code>POST /code/execute</code>, and reads only the result. A model that agrees with the reporter cannot turn a passing run into a reproduction.</p>
+    <div class="pair">
+      <figure class="shot">
+        <img src="/media/comment-6.webp" width="1092" height="1254" loading="lazy" decoding="async" alt="The real allowance-bot comment on allowance-demo issue 6: Reproduced, the model's test failed when Allowance ran it. Sandbox return code 1. Footer with model, provider and Otari request c3709369.">
+        <figcaption>The comment as GitHub shows it, captured from the public issue. Footers posted before a later fix call the $5.00/month pool ceiling the "Otari key budget"; it is the app's own setting.</figcaption>
+      </figure>
+      <div>
+        <div class="term" id="term">
+          <div class="term-bar"><span>sandbox output · allowance-demo#6</span><button type="button" id="replay">Replay</button></div>
+<pre aria-label="Sandbox output for issue 6"><span class="ln c"># Allowance runs the model's script: POST /api/v1/code/execute</span><span class="ln err">AssertionError                            Traceback (most recent call last)Cell In[1], line 12</span><span class="ln">      8 from pocketkit.lists import chunk</span><span class="ln">      9 actual = list(chunk([1, 2, 3, 4, 5], 2))</span><span class="ln">     10 expected = [[1, 2], [3, 4], [5]]</span><span class="ln">     11 if actual != expected:</span><span class="ln">---&gt; 12     raise AssertionError("REPRODUCED: expected " + repr(expected) + ", got " + repr(actual))</span><span class="ln">     13 print("NOT REPRODUCED")</span><span class="ln hit">AssertionError: REPRODUCED: expected [[1, 2], [3, 4], [5]], got [[1, 2], [3, 4]]</span></pre>
+          <p class="verdict-line"><span>return code 1 → stderr ends in the marker →</span><span class="mini-stamp">Reproduced</span></p>
+        </div>
+        <p class="term-cap">The "Output" block of the same comment, lines in their real order; the first line is our annotation. The verdict is read from this run, not from the model.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="s band" id="allowance" aria-labelledby="h-allow">
+  <div class="wrap">
+    <h2 id="h-allow">Strangers get an allowance, <em>not your key.</em></h2>
+    <p class="lede">Every outside contributor is an Otari end user, <code>gh:&lt;login&gt;</code>, on the budget <code>contributor-allowance</code>: $0.05 a day. Their write and sandbox requests carry that id, and each comment footer reads the balance back from Otari. Maintainers are charged to the repository pool instead.</p>
+    <div class="pb-grid">
+      <div class="passbook" id="passbook">
+        <div class="pb-hd"><b>Contributor passbook</b><span>gh:edycutjong · 2026-11-07 · times UTC</span></div>
+        <ol class="entries">
+          <li class="entry"><time>10:39</time><span class="what">Triage welcome on <a href="https://github.com/edycutjong/allowance-demo/issues/1#issuecomment-6705733501">#1</a><span class="note">Llama 3.3 70B labels the issue</span></span><span class="bal">$0.05 of $0.05</span></li>
+          <li class="entry"><time>11:18</time><span class="what"><code>/repro</code> on <a href="https://github.com/edycutjong/allowance-demo/issues/1#issuecomment-6706134836">#1</a><span class="note">footer: "this run cost $0.01"</span></span><span class="bal">$0.0000 of $0.05</span></li>
+          <li class="entry"><time>11:25</time><span class="what"><span class="gstamp">Blocked</span>issue <a href="https://github.com/edycutjong/allowance-demo/issues/5#issuecomment-6706212278">#5</a><span class="note">guardrail 403 · no model called · nothing charged</span></span><span class="bal">$0.0000 of $0.05</span></li>
+          <li class="entry"><time>00:00</time><span class="what">Resets 2026-11-08 00:00 UTC<span class="note">as printed in the footer</span></span><span class="bal">—</span></li>
+        </ol>
+        <div class="meter" aria-hidden="true">
+          <div class="lab"><span>left today</span><span id="meter-val">$0.0000 of $0.05</span></div>
+          <div class="meter-bar"><i id="meter-fill"></i></div>
+          <div class="keys"><span class="k1"><i></i>left</span><span class="k2"><i></i>spent today</span></div>
+        </div>
+      </div>
+      <div class="pb-side">
+        <div class="slip">
+          <div class="lab">Read this first</div>
+          <h3>These are real footers, from the owner's account.</h3>
+          <p>Before maintainers moved to the pool, the repository owner was charged as a contributor; these balances are that account's footers.</p>
+          <p>The refusal at the cap (<code>403 budget_exceeded</code>, scope <code>user</code>) was seen once in development, by a direct API call. No outside contributor has hit it in the app yet.</p>
+        </div>
+        <div class="slip">
+          <div class="lab">Maintainers</div>
+          <h3>The repository pool</h3>
+          <p class="data">$0.29 spent today by 19 contributors</p>
+          <p>From the triage footer on <a href="https://github.com/edycutjong/allowance-demo/issues/7">#7</a>, read from Otari's end-user records. The $5.00/month ceiling beside it is the app's own setting, not a read of an Otari key budget.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="s" id="verdicts" aria-labelledby="h-verdicts">
+  <div class="wrap">
+    <h2 id="h-verdicts">Four issues, four verdicts, all in public.</h2>
+    <p class="lede">Each is a comment on <a href="https://github.com/edycutjong/allowance-demo/issues">edycutjong/allowance-demo</a> with its Otari request id in the footer.</p>
+    <div class="bento">
+      <article class="v big">
+        <div class="issue">#6 · a bug report with a screenshot</div>
+        <h3><code>chunk()</code> drops the tail</h3>
+        <span class="vstamp">Reproduced<span>rc 1</span></span>
+        <div class="cmp"><span>expected</span><code class="b">[[1, 2], [3, 4], [5]]</code><span>got</span><code>[[1, 2], [3, 4]]</code></div>
+        <pre class="script" aria-label="Script that ran on issue 6"><span class="c"># the script that ran, from the comment</span>
+import subprocess, sys
+subprocess.run([sys.executable, "-m", "pip", "install", "-q", "git+https://github.com/edycutjong/allowance-demo@9259e59b6a72a243c91ea420df20788ef2b3c72a"], check=True)
+from pocketkit.lists import chunk
+actual = list(chunk([1, 2, 3, 4, 5], 2))
+expected = [[1, 2], [3, 4], [5]]
+if actual != expected:
+    raise AssertionError("REPRODUCED: expected " + repr(expected) + ", got " + repr(actual))
+print("NOT REPRODUCED")</pre>
+        <p>The model wrote this test from the issue, its screenshot and five MCP reads; the run failed on the marker assertion. About 127 s from comment to verdict.</p>
+        <div class="meta">model $0.0082 + sandbox ×1 · request c3709369-eae7-4d55-8c88-dba391c10472</div>
+        <a class="open" href="https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6708001599">Open the thread on GitHub</a>
+      </article>
+      <article class="v mid">
+        <div class="issue">#4</div>
+        <h3><code>dedupe()</code> is fine</h3>
+        <span class="vstamp">Not reproduced<span>rc 0</span></span>
+        <p>The test asserts <code>dedupe([3, 1, 3, 2, 1]) == [3, 1, 2]</code>, and it passed. A false report, answered in 19 s.</p>
+        <div class="meta">model $0.0060 · request b606e6b5</div>
+        <a class="open" href="https://github.com/edycutjong/allowance-demo/issues/4#issuecomment-6708317077">Open #4</a>
+      </article>
+      <article class="v mid">
+        <div class="issue">#7</div>
+        <h3>The repair moved the goalposts</h3>
+        <span class="vstamp">Inconclusive<span>rc 1</span></span>
+        <p>The first script imported the wrong package. Its repair also changed the expected value from 5 to 4, so Allowance did not run it, and the comment says why.</p>
+        <a class="open" href="https://github.com/edycutjong/allowance-demo/issues/7#issuecomment-6707750286">Open #7</a>
+      </article>
+      <article class="v wide">
+        <div class="issue">#5 · prompt-injection text in the issue</div>
+        <h3>Screened before any model saw it</h3>
+        <span class="vstamp">Blocked<span>403</span></span>
+        <p>Qwen3Guard flagged it (<code>Controversial (PII), score 0.6</code>); Otari answered <code>403 guardrail_violation</code>. No triage or coder call, nothing charged to the contributor.</p>
+        <img src="/media/comment-5.webp" width="1092" height="528" loading="lazy" decoding="async" alt="The real allowance-bot comment on issue 5: Blocked by the guardrail. Flagged by alibaba/qwen3guard-gen-8b, Controversial (PII), score 0.6. Otari 403 guardrail_violation, request 435df9c0.">
+        <a class="open" href="https://github.com/edycutjong/allowance-demo/issues/5#issuecomment-6706212278">Open #5</a>
+      </article>
+      <figure class="v wide shotcard">
+        <img src="/media/comment-7-top.webp" width="1092" height="560" loading="lazy" decoding="async" alt="The top of the real allowance-bot comment on issue 7: Inconclusive, the sandbox run did not decide. The last run ended with ModuleNotFoundError. Note: the repaired script was not run: it changed the assertion.">
+        <figcaption><span class="issue">#7, in the bot's words</span><p>The note under the verdict says why the repaired script was not run.</p></figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section class="s band" aria-labelledby="h-steps">
+  <div class="wrap">
+    <div class="lab">How it decides</div>
+    <h2 id="h-steps">Five steps between an issue <em>and a stamp.</em></h2>
+    <ol class="steps">
+      <li class="step"><span class="no"><svg class="glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8L3 5Z"/><path d="M8 9h8" opacity=".5"/></svg><small>step</small>01</span><h3>Screen</h3><p>The issue text goes to Otari with a guardrail attached. Our <code>/validate</code> service asks Qwen3Guard; a flagged issue gets <code>403 guardrail_violation</code>, and neither triage nor the coder is called.</p><span class="chip">qwen3guard-gen-8b</span></li>
+      <li class="step"><span class="no"><svg class="glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12 11 4h9v9l-8 8-9-9Z"/><circle cx="16" cy="8" r="1.6"/></svg><small>step</small>02</span><h3>Triage</h3><p>Llama 3.3 70B labels the issue and posts a welcome whose footer shows the contributor's balance.</p><span class="chip">llama-3.3-70b-instruct</span></li>
+      <li class="step"><span class="no"><svg class="glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c3 3 5 6 5 9l-5 9-5-9c0-3 2-6 5-9Z"/><path d="M12 12v9M12 12a1.4 1.4 0 1 0 0-.1"/></svg><small>step</small>03</span><h3>Write</h3><p>On <code>/repro</code>, the routing policy sends the issue to Qwen3-Coder 480B Turbo, which may read the repository through GitHub MCP and returns a script. It cannot run code.</p><span class="chip">policy allowance-coder</span></li>
+      <li class="step"><span class="no"><svg class="glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21V5M20 21V5M4 9h16M4 15h16M9 9v6M15 9v6"/></svg><small>step</small>04</span><h3>Gate</h3><p>The script runs only if it installs the repository at a pinned commit, calls a function the issue names, and raises the marker on that call's result.</p><span class="chip">lib/script-check.ts</span></li>
+      <li class="step"><span class="no"><svg class="glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2h12.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/><path d="M7 15h10" opacity=".5"/></svg><small>step</small>05</span><h3>Run</h3><p>Reproduced needs a failed run whose stderr ends in the marker's <code>AssertionError</code>. Not reproduced needs return code 0 and <code>NOT REPRODUCED</code> last. Anything else is Inconclusive.</p><span class="chip">POST /code/execute</span></li>
+    </ol>
+    <div class="otari">
+      <div>
+        <div class="lab">Otari, in the verdict path</div>
+        <h3>Six features claimed, two not.</h3>
+        <p>Each claimed one links a public comment in the <a href="https://github.com/edycutjong/allowance/tree/otari#-otari-integration">README</a>. The two we have not proven in an app run are listed as not claimed.</p>
+      </div>
+      <ul class="feat">
+        <li>Routing policy<span>claimed</span></li>
+        <li>GitHub MCP<span>claimed</span></li>
+        <li>Code execution<span>claimed</span></li>
+        <li>Guardrails<span>claimed</span></li>
+        <li>Per-user budgets<span>claimed</span></li>
+        <li>Three models, three roles<span>claimed</span></li>
+        <li class="no">Web search / fetch<span>not claimed</span></li>
+        <li class="no">Key budget limits<span>not claimed</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="honest" id="honest" aria-labelledby="h-honest">
+  <div class="wrap">
+    <div class="lab">Honest by design</div>
+    <h2 id="h-honest">What it does not do yet, <em>in our own words.</em></h2>
+    <div class="notes">
+      <figure class="note"><blockquote>"The routing fallback to Qwen3-VL did not fire on the screenshot in issue #6: the first target accepted the image."</blockquote><cite>README · Limits</cite></figure>
+      <figure class="note"><blockquote>"The gate is a structural check, not proof that the model's expectation is right."</blockquote><cite>README · How a verdict is made</cite></figure>
+      <figure class="note"><blockquote>"The demo bugs are in a repository we planted."</blockquote><cite>README · Limits</cite></figure>
+    </div>
+    <p class="more">Also in the README: tool results and images inside Otari's tool loop are not screened; spend can end slightly over the daily cap; a screenshot run can take about two minutes.</p>
+  </div>
+</section>
+
+<section class="s" id="faq" aria-labelledby="h-faq">
+  <div class="wrap faq">
+    <div><h2 id="h-faq">Questions a maintainer would ask</h2></div>
+    <div class="faq-list">
+    <details><summary>Does the model decide the verdict?</summary><div class="a"><p>No. It writes a script and stops; it has no code tool. Allowance runs the script in Otari's sandbox and applies fixed rules to the result: return code, the exception that ends stderr, and the last line of stdout.</p></div></details>
+    <details><summary>Who pays when a stranger comments /repro?</summary><div class="a"><p>Their own Otari end-user allowance, $0.05 a day on the budget <code>contributor-allowance</code>. Owners, members and collaborators are charged to the repository pool. No one outside the project ever holds a key.</p></div></details>
+    <details><summary>What stops a malicious issue?</summary><div class="a"><p>The issue text is screened by Qwen3Guard through an Otari guardrail before triage or the coder sees it (#5 was blocked with a 403). Tool results and images inside Otari's tool loop are not screened. The verdict never depends on what MCP returned, and at most 300 characters of the final sandbox error are quoted back to the model.</p></div></details>
+    <details><summary>What if the model writes a useless test?</summary><div class="a"><p>A script that does not install the repository, call the named function and assert on its result is not run. A repair that changes the assertion is not run either: that is what happened on #7.</p></div></details>
+    <details><summary>Is the screenshot fallback proven?</summary><div class="a"><p>No. The policy lists Qwen3-VL as step 2, but on #6 the first target accepted the image, so nothing fell back. We say so in the README instead of claiming it.</p></div></details>
+    <details><summary>Are the bugs real?</summary><div class="a"><p>They are planted, in a small Python package written for the demo. The runs are real: every verdict is a public comment whose footer prints the Otari request id.</p></div></details>
+    </div>
+  </div>
+</section>
+
+<section class="final" aria-labelledby="h-final">
+  <div class="wrap">
+    <h2 id="h-final">Open an issue. Comment <em>/repro.</em> Read the stamp.</h2>
+    <div class="ctas">
+      <a class="btn solid" href="https://github.com/edycutjong/allowance-demo/issues">Try it on the demo repo</a>
+      <a class="btn" href="/deck">Pitch deck</a>
+      <a class="btn" href="https://github.com/edycutjong/allowance/tree/otari">Source on GitHub</a>
+    </div>
+  </div>
+</section>
 </main>
+
+<footer>
+  <div class="wrap">
+    <span>Allowance · MIT · built for Mozilla's Otari "Devs Wilding Online" on DoraHacks · v0.1.0</span>
+    <nav aria-label="Footer">
+      <a href="https://github.com/edycutjong/allowance/tree/otari">Source</a>
+      <a href="/deck">Deck</a>
+      <a href="https://github.com/edycutjong/allowance-demo/issues">Demo repo</a>
+      <a href="https://dorahacks.io/hackathon/mozilla-devs-wilding/detail">Hackathon</a>
+      <a href="https://otari.ai">Otari</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // drop the load animation once played, so captures and print see the settled page
+  setTimeout(function(){ document.body.classList.add('settled'); }, 2300);
+
+  document.querySelectorAll('[data-copy]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var t = b.getAttribute('data-copy'), h = b.querySelector('.hint');
+      (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){ h.textContent = 'copied'; }, function(){ h.textContent = 'select it'; });
+      setTimeout(function(){ h.textContent = 'copy'; }, 1600);
+    });
+  });
+
+  function onView(el, fn, th){
+    if (!('IntersectionObserver' in window)) { fn(); return; }
+    var io = new IntersectionObserver(function(es){ es.forEach(function(e){ if (e.isIntersecting){ io.disconnect(); fn(); } }); }, {threshold: th || .4});
+    io.observe(el);
+  }
+
+  // receipts count up (static markup already shows the final value)
+  if (!reduce) document.querySelectorAll('[data-count]').forEach(function(el){
+    var end = parseFloat(el.dataset.count), dec = +el.dataset.dec, pre = el.dataset.prefix || '';
+    onView(el, function(){
+      var t0 = performance.now(), d = 1100;
+      (function step(t){ var k = Math.min(1, (t - t0) / d), v = end * (1 - Math.pow(1 - k, 3));
+        el.textContent = pre + v.toFixed(dec); if (k < 1) requestAnimationFrame(step); else el.textContent = pre + end.toFixed(dec); })(t0);
+    });
+  });
+
+  // terminal replay: reveal the real output line by line
+  var term = document.getElementById('term'), lines = term.querySelectorAll('.ln');
+  function replay(){
+    if (reduce) return;
+    term.classList.add('typing'); lines.forEach(function(l){ l.classList.remove('on'); });
+    var i = 0;
+    (function next(){ if (i >= lines.length){ term.classList.remove('typing'); return; }
+      lines[i].classList.add('on'); i++; setTimeout(next, i === 1 ? 500 : (i === lines.length ? 700 : 260)); })();
+  }
+  document.getElementById('replay').addEventListener('click', replay);
+  onView(term, replay, .5);
+
+  // allowance meter: drain $0.05 → $0.0000 as the passbook comes into view
+  var fill = document.getElementById('meter-fill'), val = document.getElementById('meter-val');
+  if (reduce) { fill.style.width = '0%'; }
+  else {
+    fill.style.transition = 'none'; fill.style.width = '100%'; val.textContent = '$0.05 of $0.05';
+    onView(document.getElementById('passbook'), function(){
+      setTimeout(function(){ fill.style.transition = ''; fill.style.width = '0%'; val.textContent = '$0.0000 of $0.05'; }, 500);
+    }, .45);
+  }
+
+  window.addEventListener('beforeprint', function(){ document.querySelectorAll('details').forEach(function(d){ d.open = true; }); });
+})();
+</script>
 </body>
 </html>
