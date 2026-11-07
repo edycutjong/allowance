@@ -8,10 +8,17 @@
   },
   "scripts": {
     "test": "node --experimental-strip-types --no-warnings --test test/*.test.ts",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "test:property": "node --experimental-strip-types --no-warnings --test test/verdict-property.test.ts",
+    "e2e": "playwright test",
+    "e2e:live": "BASE_URL=https://allowance.edycu.dev playwright test",
+    "audit": "npm audit --audit-level=high",
+    "ci": "npm run audit && npm run typecheck && npm test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@types/node": "^22.20.5",
+    "fast-check": "^4.10.2",
     "typescript": "^5.9.3"
   },
   "dependencies": {
