@@ -106,7 +106,13 @@ export function reproComment(login: string, r: ReproResult, a: Allowance | null 
       "",
     );
   }
-  const note = res.content.replace(/```[\s\S]*?```/g, "").trim();
+  // keep only the Expected:/Claim: lines; anything else the model wrote around the script is chatter
+  const note = res.content
+    .replace(/```[\s\S]*?```/g, "")
+    .split("\n")
+    .filter((l) => /^\s*(Expected|Claim):/.test(l))
+    .map((l) => l.trim())
+    .join("\n\n");
   if (note) lines.push(note, "");
   lines.push("---", footer(res, r.modelCostUsd, runs.length));
   return lines.join("\n");
@@ -127,11 +133,12 @@ export function refusalComment(login: string, e: ChatErr, a: Allowance | null | 
   if (e.code === "budget_exceeded") {
     const poolEmpty = e.budgetScope === "api_token";
     const who = poolEmpty ? "The repository pool" : e.budgetScope === "user" ? `@${login}'s daily allowance` : "A budget on this key";
+    const enough = e.budgetScope === "user" ? "does not have enough left to cover" : "cannot cover";
     const wait = e.retryAfterSec ? ` Try again in about ${Math.ceil(e.retryAfterSec / 3600)} h.` : "";
     return [
       poolEmpty ? `### ⏳ Repository pool exhausted this month` : `### ⏳ Out of allowance`,
       "",
-      `${who} cannot cover another reproduction run.${wait}`,
+      `${who} ${enough} another reproduction run.${wait}`,
       poolEmpty
         ? "The shared monthly ceiling on this repository's Otari key is spent. Every contributor's own daily allowance is untouched, but no run can start until the pool resets."
         : "Other contributors are unaffected: every contributor has an allowance of their own.",
@@ -157,7 +164,7 @@ export function refusalComment(login: string, e: ChatErr, a: Allowance | null | 
   ].join("\n");
 }
 
-export function welcomeComment(login: string, t: { kind: string; has_repro_steps: boolean; summary: string } | null, a: Allowance | null, trace: Trace, pool?: Pool | null): string {
+export function welcomeComment(login: string, t: { kind: string; has_repro_steps: boolean; summary: string } | null, a: Allowance | null | typeof MAINTAINER, trace: Trace, pool?: Pool | null): string {
   const lines = [`👋 Thanks @${login}.`];
   if (t) lines.push("", `Triage: **${t.kind}**${t.kind === "bug" ? (t.has_repro_steps ? " with reproduction steps" : ", no reproduction steps yet") : ""}. ${t.summary}`);
   lines.push(

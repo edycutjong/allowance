@@ -49,7 +49,8 @@ async function onIssueOpened(p: any, repo: Repo) {
   const issue = issueFromApi(repo.fullName, p.issue);
   const E = env();
   const { res, triage } = await runTriage(issue, { guardUrl: E.guardUrl }, E.otari);
-  const [a, pool] = await Promise.all([allowanceFor(issue.author, E.otari), poolFor(E.otari)]);
+  const maintainer = ["OWNER", "MEMBER", "COLLABORATOR"].includes(p.issue.author_association);
+  const [a, pool] = await Promise.all([maintainer ? Promise.resolve(MAINTAINER) : allowanceFor(issue.author, E.otari), poolFor(E.otari)]);
   if (!res.ok) {
     if (res.code === "guardrail_violation") await repo.addLabels(issue.number, ["allowance:blocked"]);
     await repo.comment(issue.number, refusalComment(issue.author, res, a, pool));

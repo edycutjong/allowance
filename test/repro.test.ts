@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { buildReproRequest, endUserId, verdictFrom, type Issue } from "../lib/repro.ts";
 import { commandIn, imageUrlsIn, parseIssueUrl } from "../lib/github-issue.ts";
 import { allowanceOf, readTrace } from "../lib/otari.ts";
-import { MAINTAINER, allowanceLine, poolLine, refusalComment, reproComment, resetLabel } from "../lib/comment.ts";
+import { MAINTAINER, allowanceLine, poolLine, refusalComment, reproComment, resetLabel, welcomeComment } from "../lib/comment.ts";
 import { getPool } from "../lib/otari.ts";
 
 const issue: Issue = {
@@ -249,4 +249,21 @@ test("403 budget_exceeded with scope api_token says the repository pool is exhau
   assert.match(c, /Repository pool exhausted this month/);
   assert.match(c, /scope `api_token`/);
   assert.doesNotMatch(c, /ana's daily allowance/);
+});
+
+test("welcome comment for a maintainer shows the pool line, not a contributor allowance", () => {
+  const c = welcomeComment("ana", { kind: "bug", has_repro_steps: true, summary: "s" }, MAINTAINER, trace, { spentToday: 0.1, users: 2, ceilingUsd: 5 });
+  assert.match(c, /maintainer: charged to the repository pool/);
+  assert.doesNotMatch(c, /left today/);
+});
+
+test("verdict note keeps only the Expected/Claim lines, a scope=user 403 says 'not enough left'", () => {
+  const res = { ok: true, status: 200, content: "Let me create a test script.\n```python\nprint(1)\n```\nExpected: [[1]]\nClaim: drops the tail", toolCalls: [], costUsd: 0, trace } as any;
+  const c = reproComment("a", { kind: "no_script", reason: "x", res, modelCostUsd: 0 }, null);
+  assert.ok(c);
+  const ran = reproComment("a", { kind: "ran", res, modelCostUsd: 0, runs: [], verdict: { kind: "reproduced", reason: "r", run: { id: "1", type: "code_execution", status: "failed", code: "c", exit_code: 1 }, runs: 1 } } as any, null);
+  assert.match(ran, /Expected: \[\[1\]\]\n\nClaim: drops the tail/);
+  assert.doesNotMatch(ran, /Let me create/);
+  const e = refusalComment("bob", { ok: false, status: 403, code: "budget_exceeded", budgetScope: "user", retryAfterSec: null, detail: null, trace }, null);
+  assert.match(e, /does not have enough left to cover another reproduction run/);
 });
