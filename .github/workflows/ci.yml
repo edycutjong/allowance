@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/otari'
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: team_RJcQx4a22v5LqjetHv8HhhLY
+      VERCEL_PROJECT_ID: prj_vTPNAS9VDHfgT64q1PDs4PgElZgg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Deploy to Vercel (production)
+        run: npx --yes vercel@latest deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Smoke test
+        run: |
+          for i in 1 2 3 4 5; do
+            curl -fsS https://allowance.edycu.dev/api/health && exit 0
+            sleep 5
+          done
+          exit 1
