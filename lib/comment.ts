@@ -34,8 +34,16 @@ const BADGE: Record<Verdict["kind"], string> = {
   inconclusive: "⚪ **Inconclusive**",
 };
 
+// pip's root/upgrade notices are sandbox noise, not evidence
+const NOISE = /^(WARNING: Running pip as the 'root' user|\[notice\]|\s*warn\()/;
 const tail = (s: string | undefined, n = 1200) => {
-  const t = (s ?? "").replace(/\x1b\[[0-9;]*m/g, "").trim();
+  const t = (s ?? "")
+    .replace(/\x1b\[[0-9;]*m/g, "")
+    .split("\n")
+    .filter((l) => !NOISE.test(l))
+    .join("\n")
+    .replace(/-{20,}(\w+Error)/g, "$1")
+    .trim();
   return t.length > n ? "…" + t.slice(-n) : t;
 };
 
