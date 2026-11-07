@@ -1,20 +1,75 @@
 name: ci
 
+# Stage 1 Quality ─┐
+#                  ├─▶ Stage 3 Build ─▶ Stage 4 E2E ─┐
+# Stage 2 Security ┘                   Stage 5 Perf ─┴─▶ Stage 6 Deploy (otari) ─▶ Stage 7 Release (semver)
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
+env:
+  VERCEL_ORG_ID: team_RJcQx4a22v5LqjetHv8HhhLY
+  VERCEL_PROJECT_ID: prj_vTPNAS9VDHfgT64q1PDs4PgElZgg
+
 jobs:
-  # Stage 1 — quality: typecheck + 100 unit/property tests
-  test:
-    name: "Stage 1 · Typecheck + tests"
+  quality:
+    name: "Stage 1 · Quality (node ${{ matrix.node }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ${{ github.event_name == 'push' && fromJSON('[22, 24]') || fromJSON('[22]') }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - name: Lint (ESLint + typescript-eslint)
+        run: npm run lint
+      - name: Typecheck (tsc --noEmit)
+        run: npm run typecheck
+      - name: Tests + coverage gate (lines ≥ 90%)
+        run: npm run test:coverage
+
+  security:
+    name: "Stage 2 · Security"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Secret scan, full history (gitleaks)
+        run: |
+          curl -fsSL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz | tar -xz gitleaks
+          ./gitleaks detect --source . --log-opts="--all" --redact
+      - name: Kitchen files never enter the repo
+        run: |
+          if git ls-files | grep -iE '(^|/)(specs?|progress|predict|radar|CLAUDE|AGENTS)\b|\.claude/|\.env$|\.pem$' | grep -vE '\.e2e\.ts$|^\.env\.example$'; then
+            echo "::error::kitchen or secret file tracked"; exit 1
+          fi
+      - run: npm ci
+      - name: Dependency audit (all deps, high+)
+        run: npm audit --audit-level=high
+      - name: License compliance (no GPL/AGPL in production deps)
+        run: npx --yes license-checker-rseidelsohn@4 --production --failOn "GPL-2.0;GPL-3.0;AGPL-3.0" --summary
+
+  build:
+    name: "Stage 3 · Build (vercel build)"
+    needs: [quality, security]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,12 +78,25 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
+      - name: Build the production output exactly as Vercel will
+        if: env.VERCEL_TOKEN != ''
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          npx --yes vercel@53.2.0 pull --yes --environment=production --token="$VERCEL_TOKEN"
+          npx --yes vercel@53.2.0 build --prod --token="$VERCEL_TOKEN"
+          echo "functions:"; find .vercel/output/functions -maxdepth 3 -name '*.func' | sed 's|.vercel/output/functions/||'
+          test -f .vercel/output/static/index.html && test -f .vercel/output/static/judge/index.html
+          rm -f .vercel/.env.*
+      - name: No token (fork PR) — static check only
+        if: env.VERCEL_TOKEN == ''
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: test -f public/index.html && test -f public/judge/index.html && test -f public/deck/index.html
 
-  # Stage 2 — E2E: landing, deck and /judge in a real browser, desktop + mobile
   e2e:
-    name: "Stage 2 · E2E (Playwright)"
+    name: "Stage 4 · E2E (Playwright)"
+    needs: [build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -46,28 +114,66 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-  # Stage 3 — deploy the otari branch, then smoke-test production
-  deploy:
-    name: "Stage 3 · Deploy + live smoke"
-    needs: [test, e2e]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/otari'
+  performance:
+    name: "Stage 5 · Performance (Lighthouse CI)"
+    needs: [build]
     runs-on: ubuntu-latest
-    env:
-      VERCEL_ORG_ID: team_RJcQx4a22v5LqjetHv8HhhLY
-      VERCEL_PROJECT_ID: prj_vTPNAS9VDHfgT64q1PDs4PgElZgg
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Lighthouse on /, /deck, /judge (accessibility ≥ 95 is a hard gate)
+        run: npx --yes @lhci/cli@0.14 autorun
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse
+          path: .lighthouseci/
+          retention-days: 7
+
+  deploy:
+    name: "Stage 6 · Deploy + live smoke"
+    needs: [e2e, performance]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/otari'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://allowance.edycu.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
           cache: npm
       - run: npm ci
-      - name: Deploy to Vercel (production)
-        run: npx --yes vercel@53.2.0 deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
-      - name: Smoke test
+      - name: Stamp the version this deploy will be released as
+        id: stamp
         run: |
-          for i in 1 2 3 4 5; do
-            curl -fsS https://allowance.edycu.dev/api/health && exit 0
+          NEXT=$(scripts/release.sh | sed -n 's/^next=v//p')
+          CUR=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null | sed 's/^v//' || true)
+          V=${NEXT:-${CUR:-0.0.0}}
+          npm pkg set version="$V"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "deploying as v$V"
+      - name: Build and deploy to Vercel (production)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          npx --yes vercel@53.2.0 pull --yes --environment=production --token="$VERCEL_TOKEN"
+          npx --yes vercel@53.2.0 build --prod --token="$VERCEL_TOKEN"
+          npx --yes vercel@53.2.0 deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN"
+      - name: Smoke test — /api/health serves this commit and version
+        env:
+          WANT_VERSION: ${{ steps.stamp.outputs.version }}
+        run: |
+          want=$(git rev-parse --short=7 HEAD)
+          for i in $(seq 1 12); do
+            body=$(curl -fsS https://allowance.edycu.dev/api/health || true)
+            echo "attempt $i: $body"
+            echo "$body" | grep -q "\"version\":\"$WANT_VERSION\"" && { echo "$body" | grep -q "\"commit\":\"$want\"" || echo "$body" | grep -q '"commit":null'; } && exit 0
             sleep 5
           done
           exit 1
@@ -75,3 +181,33 @@ jobs:
         run: |
           npx playwright install --with-deps chromium
           BASE_URL=https://allowance.edycu.dev npx playwright test --project=desktop
+
+  release:
+    name: "Stage 7 · Release (semantic version)"
+    needs: [deploy]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/otari'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Next version from conventional commits
+        id: ver
+        run: scripts/release.sh | tee -a "$GITHUB_OUTPUT"
+      - name: Tag and publish the GitHub Release
+        if: steps.ver.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.ver.outputs.next }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          REPO_URL="$REPO_URL" scripts/release.sh --notes > notes.md
+          printf '\n---\nDeployed to https://allowance.edycu.dev at `%s` after all 6 CI stages passed.\n' "$(git rev-parse --short HEAD)" >> notes.md
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "$TAG (${{ steps.ver.outputs.bump }})"
+          git push origin "$TAG"
+          gh release create "$TAG" --title "$TAG" --notes-file notes.md --verify-tag --latest

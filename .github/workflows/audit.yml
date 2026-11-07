@@ -1,10 +1,9 @@
-name: audit
+name: audit (weekly)
+# New advisories appear without any push; CI's Security stage covers every push.
 on:
-  push:
-    branches: [otari, main]
-  pull_request:
   schedule:
     - cron: "23 4 * * 1"
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -15,4 +14,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm audit --omit=dev --audit-level=high
+      - run: npm ci
+      - run: npm audit --audit-level=high
