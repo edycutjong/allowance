@@ -106,7 +106,7 @@ code,.data{font-family:var(--font-data)}
 .cover{display:grid;grid-template-columns:1fr 780px;gap:70px;align-items:center;height:100%}
 .cover h1{font-size:100px;text-wrap:balance}
 .cover .stamp .w{font-size:54px}
-.cover .row.decide p{max-width:5em;font-size:20px}
+.cover .row.decide p{max-width:7em;font-size:20px}
 .cover .stamp{right:22px}
 .cover .brand{display:flex;align-items:center;gap:16px;font:400 44px var(--font-display);margin-bottom:46px}
 .cover .brand img{width:72px;height:72px}
@@ -121,8 +121,8 @@ code,.data{font-family:var(--font-data)}
 
 /* slide 3 problem */
 .two{display:grid;grid-template-columns:1fr 1fr;gap:56px;margin-top:auto}
-.opt{background:var(--paper);border:1.5px solid var(--rule);padding:56px 60px;position:relative;min-height:540px;display:flex;flex-direction:column;justify-content:center;box-shadow:0 30px 60px -44px rgba(27,26,23,.5)}
-.opt h3{font:400 72px/1.04 var(--font-display);margin:18px 0 22px}
+.opt{background:var(--paper);border:1.5px solid var(--rule);padding:64px 60px;position:relative;min-height:430px;display:flex;flex-direction:column;justify-content:flex-start;box-shadow:0 30px 60px -44px rgba(27,26,23,.5)}
+.opt h3{font:400 72px/1.04 var(--font-display);margin:22px 0 22px}
 .opt p{font-size:34px;line-height:1.4;color:#34312a}
 .opt .x{position:absolute;right:44px;top:40px;font:italic 400 44px var(--font-display);color:var(--muted);transform:rotate(-4deg);border:2.5px solid var(--muted);padding:2px 16px 4px}
 .answer{margin:60px 0 auto;font-size:42px;line-height:1.35;max-width:32em}
@@ -134,7 +134,7 @@ code,.data{font-family:var(--font-data)}
 .turn .row .claim{font-size:31px}
 .turn .row.decide{min-height:104px}
 .never{list-style:none;margin:20px 0 0;padding:0;border-top:2px solid var(--ink)}
-.never li{padding:24px 0;border-bottom:1px solid var(--rule);font-size:30px;line-height:1.3}
+.never li{padding:34px 0;border-bottom:1px solid var(--rule);font-size:34px;line-height:1.3}
 .never li b{font-weight:600}
 .hint{margin-top:26px;font:500 16px var(--font-data);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 
@@ -190,7 +190,7 @@ code,.data{font-family:var(--font-data)}
 .claims{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;margin-top:auto}
 .cl{position:relative;background:var(--paper);border:1.5px solid var(--rule);padding:34px 36px 30px;min-height:190px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 24px 50px -40px rgba(27,26,23,.5)}
 .cl::after{content:"claimed";position:absolute;right:22px;top:20px;font:500 14px var(--font-data);letter-spacing:.14em;text-transform:uppercase;border:1.5px solid var(--ink);padding:4px 10px;transform:rotate(-3deg)}
-.cl b{font:400 44px/1.05 var(--font-display);max-width:9.5em;margin-bottom:18px}
+.cl b{font:400 44px/1.05 var(--font-display);padding-right:150px;margin-bottom:18px}
 .cl span{font:400 21px var(--font-data);color:var(--muted)}
 .notclaimed{display:flex;gap:44px;align-items:baseline;margin:40px 0 auto;padding-top:24px;border-top:2px dashed var(--rule);font-size:26px;color:var(--muted)}
 .notclaimed b{font:400 34px var(--font-display);color:var(--ink);margin-right:10px}
@@ -226,7 +226,7 @@ code,.data{font-family:var(--font-data)}
 .qrbox p{margin-top:16px;font:500 20px var(--font-data)}
 
 /* chrome */
-.chrome{position:fixed;right:18px;top:14px;display:flex;gap:10px;align-items:center;z-index:30;font:500 14px var(--font-data);color:var(--muted)}
+.chrome{position:fixed;right:18px;top:14px;background:rgba(250,248,243,.94);border:1px solid var(--rule);padding:6px 8px;display:flex;gap:10px;align-items:center;z-index:30;font:500 14px var(--font-data);color:var(--muted)}
 .chrome button{font:500 14px var(--font-data);background:var(--paper);border:1px solid var(--rule);color:var(--ink);padding:7px 12px;cursor:pointer;transition:border-color .18s ease,background .18s ease}
 .chrome button:hover{border-color:var(--ink);background:#fff}
 #count{color:var(--ink)}
@@ -290,7 +290,7 @@ body.overview{overflow:auto;background:#E9E4D8}
   <div class="slide hook">
     <div class="lab">The problem with AI triage</div>
     <h2>“Confirmed” is <em>not evidence.</em></h2>
-    <p class="big-sub">A model that reads a bug report and says "confirmed" agrees with whatever the report claims.</p>
+    <p class="big-sub">A model that reads a bug report and says "confirmed" can simply agree with whatever the report claims.</p>
   </div>
   <div class="foot"><span>Allowance · v0.1.0</span><span>allowance.edycu.dev</span></div>
   <aside class="speaker-notes">A summary of a bug report is agreement, not evidence. We wanted a verdict a maintainer can check by opening one comment.</aside>
@@ -337,7 +337,6 @@ if actual != expected:
           <li><b>Grade its own test.</b> Fixed rules read the run.</li>
           <li><b>Turn a passing run</b> into a reproduction.</li>
         </ul>
-        <p class="hint">Presenter: → fills the certificate</p>
       </div>
     </div>
   </div>
@@ -389,7 +388,7 @@ if actual != expected:
       </div>
       <div class="side">
         <div class="note"><div class="lab">Read this first</div><h3>Real footers, owner's account</h3><p>Charged as a contributor before maintainers moved to the pool.</p></div>
-        <div class="note"><div class="lab">Maintainers</div><h3>Repository pool</h3><p class="data">"$0.29 spent today by 19 contributors"</p><p>End-user spend, mostly test accounts; maintainer runs not included.</p></div>
+        <div class="note"><div class="lab">Maintainers</div><h3>Repository pool</h3><p class="data">"$0.29 spent today by 19 contributors"</p><p>19 end users, 18 of them test accounts; maintainer runs not included.</p></div>
       </div>
     </div>
   </div>
@@ -405,13 +404,13 @@ if actual != expected:
       <div class="st"><div class="num">01</div><h3>Screen</h3><p>Guardrail on the issue text</p><p class="br">flagged → 403, stop</p><span class="chip">qwen3guard-gen-8b</span></div>
       <div class="st"><div class="num">02</div><h3>Triage</h3><p>Labels, balance footer</p><span class="chip">llama-3.3-70b</span></div>
       <div class="st"><div class="num">03</div><h3>Write</h3><p>Routing policy, GitHub MCP calls; no code tool</p><span class="chip">allowance-coder</span></div>
-      <div class="st"><div class="num">04</div><h3>Gate</h3><p>Pinned install, named function, marker</p><p class="br">fails → not run</p><span class="chip">script-check.ts</span></div>
+      <div class="st"><div class="num">04</div><h3>Gate</h3><p>Installs the repo, calls the named function, raises the marker</p><p class="br">fails → not run</p><span class="chip">script-check.ts</span></div>
       <div class="st"><div class="num">05</div><h3>Run</h3><p>Return code, final stderr exception, last stdout line</p><span class="chip">/code/execute</span></div>
     </div>
-    <div class="outcomes"><span class="lab">One of three verdicts</span><span class="vstamp">Reproduced</span><span class="vstamp">Not reproduced</span><span class="vstamp">Inconclusive</span></div>
+    <div class="outcomes"><span class="lab">One of three verdicts · Blocked never reaches the sandbox</span><span class="vstamp">Reproduced</span><span class="vstamp">Not reproduced</span><span class="vstamp">Inconclusive</span></div>
   </div>
   <div class="foot"><span>Allowance · v0.1.0</span><span>allowance.edycu.dev</span></div>
-  <aside class="speaker-notes">Three open-weight models, three roles. The coder only writes. The gate refuses scripts that do not install the repository at a pinned commit, call the function the issue names and assert on its result. Reproduced needs the marker's AssertionError at the end of stderr.</aside>
+  <aside class="speaker-notes">Three open-weight models, three roles. The coder only writes. The gate refuses scripts that do not install the repository, call the function the issue names and assert on its result; Allowance then pins the install to the head commit. Reproduced needs the marker's AssertionError at the end of stderr.</aside>
 </section>
 
 <section class="frame" data-title="Otari depth" aria-label="Slide 8, Otari features">
@@ -437,9 +436,9 @@ if actual != expected:
     <div class="lab">Honest by design · README</div>
     <h2>What we have <em>not proven.</em></h2>
     <div class="quotes">
-      <figure class="q"><blockquote>"The routing fallback to Qwen3-VL did not fire on the screenshot in issue #6: the first target accepted the image."</blockquote><cite>README · Limits</cite></figure>
-      <figure class="q"><blockquote>"The gate is a structural check, not proof that the model's expectation is right."</blockquote><cite>README · verdict</cite></figure>
-      <figure class="q"><blockquote>"The demo bugs are in a repository we planted."</blockquote><cite>README · Limits</cite></figure>
+      <figure class="q"><blockquote>“The routing fallback to Qwen3-VL did not fire on the screenshot in issue #6: the first target accepted the image.”</blockquote><cite>README · Limits</cite></figure>
+      <figure class="q"><blockquote>“The gate is a structural check, not proof that the model's expectation is right.”</blockquote><cite>README · verdict</cite></figure>
+      <figure class="q"><blockquote>“The demo bugs are in a repository we planted.”</blockquote><cite>README · Limits</cite></figure>
     </div>
   </div>
   <div class="rcpts">

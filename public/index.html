@@ -191,7 +191,7 @@ h2 em{color:inherit;font-style:italic}
 .pb-hd b{font:400 26px var(--font-display)}
 .pb-hd span{font:400 12.5px var(--font-data);color:var(--muted)}
 .entries{list-style:none;margin:0;padding:0}
-.entry{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:14px;padding:14px 0;border-bottom:1px dashed var(--rule);align-items:baseline}
+.entry{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:14px;padding:10px 0;border-bottom:1px dashed var(--rule);align-items:baseline}
 .entry time{font:500 13px var(--font-data);color:var(--muted)}
 .entry .what{font-size:16px;line-height:1.4}
 .entry .what a{white-space:nowrap}
@@ -447,7 +447,7 @@ if actual != expected:
 <section class="s band" id="allowance" aria-labelledby="h-allow">
   <div class="wrap">
     <h2 id="h-allow">Strangers get an allowance, <em>not your key.</em></h2>
-    <p class="lede">Every outside contributor is an Otari end user, <code>gh:&lt;login&gt;</code>, on the budget <code>contributor-allowance</code>: $0.05 a day. Their write and sandbox requests carry that id, and each of their comment footers reads the balance back from Otari. Maintainers run on the repository's own key instead.</p>
+    <p class="lede">Every outside contributor is an Otari end user, <code>gh:&lt;login&gt;</code>, on the budget <code>contributor-allowance</code>: $0.05 a day. Their write and sandbox requests carry that id, and the footer of each of their triage and verdict comments reads the balance back from Otari. Maintainers run on the repository's own key instead.</p>
     <div class="pb-grid">
       <div class="passbook" id="passbook">
         <div class="pb-hd"><b>Contributor passbook</b><span>gh:edycutjong · 2026-11-07 · times UTC</span></div>
@@ -478,7 +478,7 @@ if actual != expected:
           <div class="lab">Maintainer footers</div>
           <h3>What the pool line counts</h3>
           <p class="data">"$0.29 spent today by 19 contributors"</p>
-          <p>From the triage footer on <a href="https://github.com/edycutjong/allowance-demo/issues/7">#7</a>: the end users' combined spend, summed from Otari's records, mostly development test accounts; maintainer runs on the repository key are not in it. The $5.00/month ceiling beside it is the app's own setting.</p>
+          <p>From the triage footer on <a href="https://github.com/edycutjong/allowance-demo/issues/7">#7</a>: the end users' combined spend, summed from Otari's records: 19 end users, 18 of them development test accounts (README); maintainer runs on the repository key are not in it. The $5.00/month ceiling beside it is the app's own setting.</p>
         </div>
       </div>
     </div>
@@ -532,7 +532,7 @@ print("NOT REPRODUCED")</pre>
       </article>
       <figure class="v wide shotcard">
         <img src="/media/comment-7-top.webp" width="1092" height="560" loading="lazy" decoding="async" alt="The top of the real allowance-bot comment on issue 7: Inconclusive, the sandbox run did not decide. The last run ended with ModuleNotFoundError. Note: the repaired script was not run: it changed the assertion.">
-        <figcaption><span class="issue">#7, in the bot's words</span><p>The note under the verdict says why the repaired script was not run.</p></figcaption>
+        <figcaption><span class="issue">#7 · the refused repair, in the bot's words</span><p>The note under the verdict says why the repaired script was not run.</p></figcaption>
       </figure>
     </div>
   </div>
@@ -546,7 +546,7 @@ print("NOT REPRODUCED")</pre>
       <li class="step"><span class="no">01</span><h3>Screen</h3><p>The issue text goes to Otari with a guardrail attached. Our <code>/validate</code> service asks Qwen3Guard; a flagged issue gets <code>403 guardrail_violation</code>, and neither triage nor the coder is called.</p><p class="br">flagged → 403, stop</p><span class="chip">qwen3guard-gen-8b</span></li>
       <li class="step"><span class="no">02</span><h3>Triage</h3><p>Llama 3.3 70B labels the issue and posts a welcome whose footer shows the contributor's balance.</p><span class="chip">llama-3.3-70b-instruct</span></li>
       <li class="step"><span class="no">03</span><h3>Write</h3><p>On <code>/repro</code>, the routing policy sends the issue to Qwen3-Coder 480B Turbo, which may read the repository through GitHub MCP and returns a script. It cannot run code.</p><span class="chip">policy allowance-coder</span></li>
-      <li class="step"><span class="no">04</span><h3>Gate</h3><p>The script runs only if it installs the repository at a pinned commit, calls a function the issue names, and raises the marker on that call's result.</p><p class="br">fails → not run</p><span class="chip">lib/script-check.ts</span></li>
+      <li class="step"><span class="no">04</span><h3>Gate</h3><p>The script runs only if it installs this repository, calls a function the issue names, and raises the marker on that call's result; Allowance then pins the install to the head commit.</p><p class="br">fails → not run</p><span class="chip">lib/script-check.ts</span></li>
       <li class="step"><span class="no">05</span><h3>Run</h3><p>Reproduced needs a failed run whose stderr ends in the marker's <code>AssertionError</code>. Not reproduced needs return code 0 and <code>NOT REPRODUCED</code> last. Anything else is Inconclusive.</p><span class="chip">POST /code/execute</span></li>
     </ol>
     <div class="otari">
@@ -574,10 +574,10 @@ print("NOT REPRODUCED")</pre>
     <div class="lab">Honest by design</div>
     <h2 id="h-honest">What it does not do yet, <em>in our own words.</em></h2>
     <div class="notes">
-      <figure class="note"><blockquote>"The routing fallback to Qwen3-VL did not fire on the screenshot in issue #6: the first target accepted the image."</blockquote><cite>README · Limits</cite></figure>
-      <figure class="note"><blockquote>"The gate is a structural check, not proof that the model's expectation is right."</blockquote><cite>README · How a verdict is made</cite></figure>
-      <figure class="note"><blockquote>"MCP and web-fetch results and image content inside Otari's tool loop are not screened"</blockquote><cite>README · Limits · excerpt</cite></figure>
-      <figure class="note"><blockquote>"The demo bugs are in a repository we planted."</blockquote><cite>README · Limits</cite></figure>
+      <figure class="note"><blockquote>“The routing fallback to Qwen3-VL did not fire on the screenshot in issue #6: the first target accepted the image.”</blockquote><cite>README · Limits</cite></figure>
+      <figure class="note"><blockquote>“The gate is a structural check, not proof that the model's expectation is right.”</blockquote><cite>README · How a verdict is made</cite></figure>
+      <figure class="note"><blockquote>“MCP and web-fetch results and image content inside Otari's tool loop are not screened”</blockquote><cite>README · Limits · excerpt</cite></figure>
+      <figure class="note"><blockquote>“The demo bugs are in a repository we planted.”</blockquote><cite>README · Limits</cite></figure>
     </div>
   </div>
 </section>
