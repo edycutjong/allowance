@@ -143,26 +143,40 @@ npm run test:property  # the verdict property test alone: 25,000 generated sandb
 npm run typecheck      # tsc --noEmit
 npm run e2e            # Playwright: landing, deck and /judge, desktop + mobile
 npm run e2e:live       # the same suite against https://allowance.edycu.dev
+npm run lint           # ESLint
+npm run ci             # lint + typecheck + coverage gate + audit, as CI stage 1–2
 ```
 
 - **Property test of the verdict.** `test/verdict-property.test.ts` feeds 25,000 generated sandbox runs (random stdout, stderr, exit codes, earlier runs, non-sandbox tool calls) to `verdictFrom`. In every one, **Reproduced** came only from a failed run with the marker's AssertionError in stderr, **Not reproduced** only from a clean exit with `NOT REPRODUCED`, the marker printed to stdout never counted, and only the last sandbox run decided.
 - **Regression tests are named for the defect they pin**, including the bypasses outside reviewers found (`gate: kilo r03 control — print the marker then sys.exit(1) — is refused`).
 - **Permission boundary:** maintainers run on the repository key with no end user; contributors run on the service key as `gh:<login>` (`test/repro.test.ts`).
 
-| Stage | Tool |
+**7-stage pipeline** (`.github/workflows/ci.yml`), every push and pull request:
+
+```
+1 Quality ─┐
+           ├─▶ 3 Build ─▶ 4 E2E ─────┐
+2 Security ┘             5 Lighthouse ┴─▶ 6 Deploy (otari) ─▶ 7 Release
+```
+
+| Stage | What runs |
 |---|---|
-| 1 · Typecheck + tests | tsc, node:test (100) |
-| 2 · E2E | Playwright, 3 suites, desktop + mobile |
-| 3 · Deploy | Vercel, `otari` branch only, then `/api/health` smoke + live E2E |
-| Security | CodeQL, gitleaks (full history), npm audit, Dependabot |
-| Release | tags from conventional commits on `otari` |
+| 1 · Quality | ESLint + typescript-eslint, `tsc --noEmit`, 100 tests with a **line-coverage gate ≥ 90%** (currently 95.9%), Node 22 and 24 |
+| 2 · Security | gitleaks over the full history, a check that no private planning files are tracked, `npm audit` (0 vulnerabilities), license check (no GPL/AGPL in production deps) |
+| 3 · Build | `vercel build --prod`: the exact production output, functions and static pages |
+| 4 · E2E | Playwright, 3 suites, desktop + mobile |
+| 5 · Performance | Lighthouse CI on `/`, `/deck`, `/judge`; accessibility ≥ 95 is a hard gate (measured 100 on all three) |
+| 6 · Deploy | `otari` only: prebuilt deploy to Vercel, then `/api/health` must report this commit and version, then the E2E suite runs against production |
+| 7 · Release | **automatic semantic version** from conventional commits (`feat:` minor, `fix:`/`perf:` patch, `!`/`BREAKING CHANGE` major; docs/ci/chore/test make no release), tagged and published as a GitHub Release with notes grouped by type |
+
+Also: CodeQL (SAST), a weekly `npm audit`, and monthly grouped Dependabot updates (no major bumps). Dry-run the next release locally with `npm run release:dry`.
 
 ## 📁 Project Structure
 
 ```
 api/        github.ts (webhook), guard/ (the /validate service), health.ts
 lib/        webhook, triage, repro, script-check, guard, otari, github, github-issue, comment, idempotency
-scripts/    repro.ts (dry-run CLI)
+scripts/    repro.ts (dry-run CLI), release.sh (semantic version + release notes)
 test/       7 files: webhook, repro, script-check, guard, github, idempotency, verdict-property
 e2e/        Playwright: pages, deck, judge-route (*.e2e.ts)
 public/     landing (/), deck (/deck), judge page (/judge)
