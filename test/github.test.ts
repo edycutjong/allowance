@@ -34,3 +34,10 @@ test("triage labels", () => {
   assert.deepEqual(triageLabels({ kind: "bug", has_repro_steps: false, summary: "" }), ["kind:bug", "repro:needs-steps"]);
   assert.deepEqual(triageLabels({ kind: "question", has_repro_steps: false, summary: "" }), ["kind:question"]);
 });
+
+test("GET /api/health returns status ok and the package version", async () => {
+  const { GET } = await import("../api/health.ts");
+  const body = await (await GET()).json();
+  assert.equal(body.status, "ok");
+  assert.match(body.version, /^\d+\.\d+\.\d+$/);
+});
