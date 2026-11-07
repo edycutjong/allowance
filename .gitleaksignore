@@ -1,0 +1,2 @@
+# Placeholder PEM header in .env.example (no key material), replaced in the next commit
+3b161e248a3566770f6156d47e2dba3017837b2e:.env.example:private-key:19
