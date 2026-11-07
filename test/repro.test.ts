@@ -56,7 +56,7 @@ test("request: billed to the contributor, guarded, routed, tooled", () => {
   assert.equal(b.model, "allowance-coder");
   assert.deepEqual(b.guardrails, [{ profile: "prompt-injection", mode: "block", url: "https://g/validate" }]);
   assert.deepEqual(b.mcp_server_ids, ["m1"]);
-  assert.deepEqual(b.tools.map((t: any) => t.type), ["otari_code_execution", "otari_web_fetch"]);
+  assert.deepEqual(b.tools.map((t: any) => t.type), ["otari_web_fetch"]); // the model writes; Allowance runs
 });
 
 test("request: screenshots become image parts", () => {
@@ -121,13 +121,16 @@ test("comment: verdict line credits the sandbox", () => {
   const run = exec({ status: "failed", exit_code: 1, code: "assert 1==2", stderr: "AssertionError: REPRODUCED: x" });
   const c = reproComment("a", {
     kind: "ran",
-    res: { ok: true, status: 200, content: "Expected: a", toolCalls: [run], costUsd: 0.0123, trace },
+    res: { ok: true, status: 200, content: "```python\nx\n```\nExpected: a", toolCalls: [], costUsd: 0.0123, trace },
     verdict: verdictFrom([run]),
+    runs: [run],
+    modelCostUsd: 0.0123,
   }, { limit: 0.05, spent: 0.0123, left: 0.0377, resetsAt: null });
-  assert.match(c, /Reproduced\*\* — decided by the sandbox exit code/);
-  assert.match(c, /exit code `1`/);
+  assert.match(c, /Reproduced\*\* — decided by the sandbox, not by the model/);
+  assert.match(c, /return code `1`/);
   assert.match(c, /\$0\.04 of \$0\.05 left today/);
-  assert.match(c, /this run cost \$0\.01/);
+  assert.match(c, /model \$0\.01 \+ sandbox ×1/);
+  assert.doesNotMatch(c, /```python\nx/); // the model's copy of the script is not repeated
 });
 
 test("verdict: reason comes from the raised line, not the echoed f-string source", () => {
@@ -143,4 +146,83 @@ test("verdict: reason comes from the raised line, not the echoed f-string source
 test("verdict: marker only in echoed source (exception was something else) is not a reproduction", () => {
   const stderr = '---> 3 raise AssertionError("REPRODUCED: x")\nModuleNotFoundError: No module named pocketkit';
   assert.equal(verdictFrom([exec({ status: "failed", exit_code: 1, stderr })]).kind, "inconclusive");
+});
+
+import { extractScript, scriptProblem, execToToolCall, runRepro } from "../lib/repro.ts";
+
+test("extractScript takes the last python block", () => {
+  assert.equal(extractScript("a\n```python\nprint(1)\n```\nb\n```python\nprint(2)\n```"), "print(2)");
+  assert.equal(extractScript("no code"), null);
+});
+
+test("scriptProblem: must install this repo and assert the marker", () => {
+  assert.match(scriptProblem("print(1)", "o/r") ?? "", /does not install o\/r/);
+  assert.equal(scriptProblem('pip install git+https://github.com/o/r\nraise AssertionError("REPRODUCED: x")', "o/r"), null);
+});
+
+test("execToToolCall maps return code to status", () => {
+  assert.equal(execToToolCall("c", { returnCode: 0, stdout: "", stderr: "", requestId: null, httpStatus: 200 }).status, "completed");
+  assert.equal(execToToolCall("c", { returnCode: 1, stdout: "", stderr: "", requestId: null, httpStatus: 200 }).status, "failed");
+});
+
+function fakeFetch(routes: { chat: string[]; exec: Array<{ return_code: number; stdout?: string; stderr?: string } | { status: number; code: string }> }) {
+  let c = 0, e = 0;
+  const calls: string[] = [];
+  const f = async (url: string, init: any) => {
+    calls.push(url);
+    if (url.endsWith("/chat/completions")) {
+      const content = routes.chat[Math.min(c++, routes.chat.length - 1)];
+      return new Response(JSON.stringify({ choices: [{ message: { content } }], usage: { cost_usd: "0.002" } }), { status: 200 });
+    }
+    const x: any = routes.exec[Math.min(e++, routes.exec.length - 1)];
+    if (x.status) return new Response(JSON.stringify({ detail: "no", code: x.code }), { status: x.status, headers: { "otari-error-code": x.code, "otari-budget-scope": "user" } });
+    return new Response(JSON.stringify(x), { status: 200 });
+  };
+  return { f: f as unknown as typeof fetch, calls };
+}
+const env = { OTARI_API_KEY: "k", OTARI_SERVICE_KEY: "s", OTARI_BASE_URL: "https://o/api/v1" };
+const good = '```python\nimport subprocess, sys\nsubprocess.run(["pip","install","git+https://github.com/o/r"])\nraise AssertionError("REPRODUCED: x")\n```';
+
+test("runRepro: model writes, Allowance runs once, sandbox decides", async () => {
+  const { f, calls } = fakeFetch({ chat: [good], exec: [{ return_code: 1, stderr: "AssertionError: REPRODUCED: expected 5, got 4" }] });
+  const r = await runRepro(issue, "a", {}, env, f);
+  assert.equal(r.kind, "ran");
+  if (r.kind === "ran") assert.equal(r.verdict.kind, "reproduced");
+  assert.deepEqual(calls.map((u) => u.split("/").pop()), ["completions", "execute"]);
+});
+
+test("runRepro: one repair turn on a setup error, then the sandbox decides", async () => {
+  const { f, calls } = fakeFetch({ chat: [good, good], exec: [{ return_code: 1, stderr: "ModuleNotFoundError: No module named x" }, { return_code: 0, stdout: "NOT REPRODUCED" }] });
+  const r = await runRepro(issue, "a", {}, env, f);
+  assert.equal(r.kind === "ran" && r.verdict.kind, "not_reproduced");
+  assert.equal(r.kind === "ran" && r.runs.length, 2);
+  assert.equal(calls.length, 4);
+});
+
+test("runRepro: a script that does not install the repo is never run", async () => {
+  const { f, calls } = fakeFetch({ chat: ["```python\ndef parse(): pass\n```"], exec: [] });
+  const r = await runRepro(issue, "a", {}, env, f);
+  assert.equal(r.kind, "no_script");
+  assert.equal(calls.length, 1);
+});
+
+test("runRepro: sandbox budget refusal becomes a per-user refusal", async () => {
+  const { f } = fakeFetch({ chat: [good], exec: [{ status: 403, code: "budget_exceeded" }] });
+  const r = await runRepro(issue, "a", {}, env, f);
+  assert.equal(r.kind, "refused");
+  if (r.kind === "refused") assert.equal(r.res.code, "budget_exceeded");
+});
+
+test("maintainers run on the repo pool key with no end user; contributors on the service key as gh:<login>", async () => {
+  const seen: any[] = [];
+  const f = (async (url: string, init: any) => {
+    seen.push({ url, auth: init.headers.Authorization, body: JSON.parse(init.body) });
+    if (url.endsWith("/chat/completions")) return new Response(JSON.stringify({ choices: [{ message: { content: good } }], usage: { cost_usd: "0" } }), { status: 200 });
+    return new Response(JSON.stringify({ return_code: 0, stdout: "NOT REPRODUCED" }), { status: 200 });
+  }) as unknown as typeof fetch;
+  await runRepro(issue, "Maint", { maintainer: true }, env, f);
+  assert.deepEqual(seen.map((s) => [s.auth, s.body.user]), [["Bearer k", undefined], ["Bearer k", undefined]]);
+  seen.length = 0;
+  await runRepro(issue, "Contrib", {}, env, f);
+  assert.deepEqual(seen.map((s) => [s.auth, s.body.user]), [["Bearer s", "gh:contrib"], ["Bearer s", "gh:contrib"]]);
 });

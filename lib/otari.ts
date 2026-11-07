@@ -156,3 +156,38 @@ export function allowanceOf(user: EndUser | null, budgets: EndUserBudget[]): All
     resetsAt: user?.next_budget_reset_at ?? null,
   };
 }
+
+export type ExecResult = { returnCode: number; stdout: string; stderr: string; requestId: string | null; httpStatus: number; error?: ChatErr };
+
+// Direct sandbox run (POST /code/execute) billed to the end user on the service key.
+// The response carries no cost (Otari #2864); a run is billed $0.01 to the end user's budget.
+export async function executeCode(
+  code: string,
+  endUser: string | null,
+  env: Pick<OtariEnv, "OTARI_BASE_URL" | "OTARI_SERVICE_KEY">,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ExecResult> {
+  for (let attempt = 0; ; attempt++) {
+    const r = await fetchImpl(`${baseUrl(env)}/code/execute`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.OTARI_SERVICE_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify(endUser ? { code, language: "python", user: endUser } : { code, language: "python" }),
+    });
+    const requestId = r.headers.get("otari-request-id");
+    const j: any = await r.json().catch(() => ({}));
+    if (r.ok) return { returnCode: Number(j.return_code ?? 1), stdout: j.stdout ?? "", stderr: j.stderr ?? "", requestId, httpStatus: r.status };
+    // retry once on a transient sandbox failure; budget refusals are final
+    if (r.status >= 500 && attempt === 0) continue;
+    const ra = r.headers.get("retry-after");
+    const error: ChatErr = {
+      ok: false,
+      status: r.status,
+      code: r.headers.get("otari-error-code") ?? j.code ?? null,
+      detail: j.detail ?? j,
+      budgetScope: r.headers.get("otari-budget-scope"),
+      retryAfterSec: ra == null ? null : Number(ra),
+      trace: readTrace(r.headers),
+    };
+    return { returnCode: -1, stdout: "", stderr: `sandbox HTTP ${r.status}: ${JSON.stringify(j.detail ?? j).slice(0, 300)}`, requestId, httpStatus: r.status, error };
+  }
+}

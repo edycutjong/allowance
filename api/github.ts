@@ -2,7 +2,7 @@
 //  issues.opened          -> triage (bot key, Llama-3.3-70B) + welcome comment + labels
 //  issue_comment.created  -> "/repro" -> contributor's own allowance (service key) -> sandbox verdict
 import { waitUntil } from "@vercel/functions";
-import { RUNNING, reproComment, refusalComment, welcomeComment } from "../lib/comment.js";
+import { MAINTAINER, RUNNING, reproComment, refusalComment, welcomeComment } from "../lib/comment.js";
 import { issueFromApi, commandIn } from "../lib/github-issue.js";
 import { installationToken, Repo, verifySignature } from "../lib/github.js";
 import { allowanceOf, getEndUser, getEndUserBudgets, type OtariEnv } from "../lib/otari.js";
@@ -52,18 +52,21 @@ async function onIssueOpened(p: any, repo: Repo) {
 
 async function onRepro(p: any, repo: Repo) {
   const login: string = p.comment.user.login;
+  const maintainer = ["OWNER", "MEMBER", "COLLABORATOR"].includes(p.comment.author_association);
   const issue = issueFromApi(repo.fullName, p.issue);
   const E = env();
   await repo.react(p.comment.id, "eyes");
   const placeholder = await repo.comment(issue.number, RUNNING(login));
-  const result = await runRepro(issue, login, { guardUrl: E.guardUrl, mcpServerIds: E.mcpServerIds }, E.otari);
-  const a = await allowanceFor(login, E.otari);
+  const result = await runRepro(issue, login, { guardUrl: E.guardUrl, mcpServerIds: E.mcpServerIds, maintainer }, E.otari);
+  const a = maintainer ? MAINTAINER : await allowanceFor(login, E.otari);
   await repo.editComment(placeholder.id, reproComment(login, result, a));
   if (result.kind === "ran") {
     for (const l of ["repro:yes", "repro:no", "repro:inconclusive", "repro:ready", "repro:needs-steps"]) await repo.removeLabel(issue.number, l);
     const label = { reproduced: "repro:yes", not_reproduced: "repro:no", inconclusive: "repro:inconclusive" }[result.verdict.kind];
     await repo.addLabels(issue.number, [label]);
     await repo.react(p.comment.id, result.verdict.kind === "inconclusive" ? "-1" : "rocket");
+  } else if (result.kind === "no_script") {
+    await repo.addLabels(issue.number, ["repro:inconclusive"]);
   } else if (result.res.code === "guardrail_violation") {
     await repo.addLabels(issue.number, ["allowance:blocked"]);
   }

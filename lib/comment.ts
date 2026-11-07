@@ -13,7 +13,9 @@ export function resetLabel(iso: string | null): string {
   return `resets ${d.toISOString().slice(0, 10)} ${hh}:${mm} UTC`;
 }
 
-export function allowanceLine(login: string, a: Allowance | null): string {
+export const MAINTAINER = Symbol("maintainer");
+export function allowanceLine(login: string, a: Allowance | null | typeof MAINTAINER): string {
+  if (a === MAINTAINER) return `@${login} is a maintainer: charged to the repository pool, not a contributor allowance`;
   if (!a || a.limit == null) return `@${login}'s allowance: unavailable`;
   const reset = resetLabel(a.resetsAt);
   return `@${login}'s allowance: **${usd(a.left ?? 0)} of ${usd(a.limit)} left today**${reset ? " · " + reset : ""}`;
@@ -44,19 +46,35 @@ export function toolSummary(res: ChatOk): string {
   return [...counts].map(([k, v]) => `${k} ×${v}`).join(", ");
 }
 
-export function reproComment(login: string, r: ReproResult, a: Allowance | null): string {
+export function reproComment(login: string, r: ReproResult, a: Allowance | null | typeof MAINTAINER): string {
   if (r.kind === "refused") return refusalComment(login, r.res, a);
-  const { res, verdict } = r;
+  const footer = (res: ChatOk, model: number, runs: number) =>
+    `<sub>${allowanceLine(login, a)} · this run: model ${usd(model)}${runs ? ` + sandbox ×${runs}` : ""} · tools: ${toolSummary(res)}<br>${traceLine(res.trace)}</sub>`;
+  if (r.kind === "no_script") {
+    return [
+      "### ⚪ **Inconclusive**: no runnable script",
+      "",
+      `> ${r.reason}`,
+      "",
+      "Nothing was run in the sandbox. Adding exact steps (input, expected, actual) to the issue usually fixes this.",
+      "",
+      "---",
+      footer(r.res, r.modelCostUsd, 0),
+    ].join("\n");
+  }
+  const { res, verdict, runs } = r;
   const run = verdict.run;
   const lines = [
-    `### ${BADGE[verdict.kind]} — decided by the sandbox exit code, not by the model`,
+    `### ${BADGE[verdict.kind]} — decided by the sandbox, not by the model`,
     "",
     `> ${verdict.reason}`,
+    "",
+    "The model only wrote the script. Allowance ran it in Otari's sandbox" + (runs.length > 1 ? ` (${runs.length} runs: the first failed to set up and the model repaired it)` : "") + ".",
     "",
   ];
   if (run) {
     lines.push(
-      `Sandbox: status \`${run.status}\`, exit code \`${run.exit_code ?? "?"}\` (run ${verdict.runs} of ${verdict.runs}).`,
+      `Sandbox: return code \`${run.exit_code ?? "?"}\``,
       "",
       "<details><summary>Script that ran</summary>",
       "",
@@ -74,15 +92,13 @@ export function reproComment(login: string, r: ReproResult, a: Allowance | null)
       "",
     );
   }
-  if (res.content.trim()) lines.push(res.content.trim(), "");
-  lines.push(
-    "---",
-    `<sub>${allowanceLine(login, a)} · this run cost ${usd(res.costUsd)} · tools: ${toolSummary(res)}<br>${traceLine(res.trace)}</sub>`,
-  );
+  const note = res.content.replace(/```[\s\S]*?```/g, "").trim();
+  if (note) lines.push(note, "");
+  lines.push("---", footer(res, r.modelCostUsd, runs.length));
   return lines.join("\n");
 }
 
-export function refusalComment(login: string, e: ChatErr, a: Allowance | null): string {
+export function refusalComment(login: string, e: ChatErr, a: Allowance | null | typeof MAINTAINER): string {
   if (e.code === "guardrail_violation") {
     const g = (e.detail as any)?.guardrails?.[0];
     return [
