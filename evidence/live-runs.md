@@ -61,3 +61,14 @@ call's result (`lib/script-check.ts`); the verdict reads only the exception that
   https://github.com/edycutjong/allowance-demo/issues/7#issuecomment-6707750286
 - Redelivery: the issue #6 `/repro` delivery (answered 202) was redelivered through the GitHub App API; the issue still
   has one verdict comment for that trigger and 7 comments in total.
+- Repair-turn screening probe (direct `chat/completions` shaped like a repair turn, no issue): Otari sent the guard an
+  `input_text` of 281 characters — the last user message, which quoted #5's injection text as a `ModuleNotFoundError`
+  line — and the guard model judged it Safe, so the request was not blocked. Request
+  `194e59da-d5ea-4835-8366-be476338d2f9`. Since then the repair turn quotes only the line that ended the run, clipped
+  to 300 characters, and a repaired script must keep every non-import line of the first one.
+- Issue #6, `/repro` after the one-deadline change: **Could not finish** (`TimeoutError`) — the write turn (screenshot
+  + five MCP reads) outran a 90 s ceiling; the placeholder was replaced, not left running.
+  https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6707963195
+- Issue #6 again with a 150 s ceiling for the write turn: **Reproduced** at `9259e59`; model $0.0082 + sandbox ×1;
+  tools: mcp ×5; request `c3709369-eae7-4d55-8c88-dba391c10472`; about 127 s from comment to verdict.
+  https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6708001599
