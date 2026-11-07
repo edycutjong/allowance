@@ -1,6 +1,6 @@
 # What we learned building on Otari
 
-Notes from building [Allowance](../README.md) against `api.otari.ai` during the Devs Wilding hackathon (2026-11-07). Four are real bugs with a repro, the rest are documentation gaps. Request ids are Otari's. Items come from our own API calls and app logs during the build; the status codes for the two request ids tied to issue #1 are visible in that issue's public comments, the raw responses for the rest are not in this repository.
+Notes from building [Allowance](../README.md) against `api.otari.ai` during the Devs Wilding hackathon (2026-11-07). Four are real bugs with a repro, the rest are documentation gaps; the last sections answer the hackathon's written-feedback questions from what we built. Request ids are Otari's. Items come from our own API calls and app logs during the build; the status codes for the two request ids tied to issue #1 are visible in that issue's public comments, the raw responses for the rest are not in this repository.
 
 ## Bugs
 
@@ -37,8 +37,22 @@ Observed: `400 "The format of the value at messages.N.content.0.toolResult.conte
 - **The sandbox is an IPython kernel.** `sys.exit(3)` comes back as exit code 1, and tracebacks arrive in `stderr` with an IPython header. Fine for pass/fail, wrong for tools that read specific codes. Probe request `7e3c139f-a519-447a-ac41-00f69a9d46df`. A failed run can also return no exit code and empty output, which gives the caller nothing to act on. Whether a 5xx means "the code did not run" (retry safety, double billing) is undocumented.
 - **Which text does the guardrail see?** The docs do not say what Otari sends as `input_text`, or whether tool results inside the tool loop are screened. We windowed the guard input ourselves and cannot screen tool output. A guardrail stage on tool results would close this.
 - **Images and routing.** On a screenshot report the policy's first target, a text coder, accepted the image without error, so the Qwen3-VL step never ran. Nothing in the response says whether the image was read or dropped. An "images unsupported" error or an `image dropped` header would make fallback predictable (requests `f6141c22-6f01-4831-81dc-8082485ca781`, `eb483b82-0440-465b-9777-2c7fd41dd5b7`).
+- **End-user spend can pass the daily budget.** On 2026-11-07, before the 00:00 UTC reset, three end users on our $0.05 `contributor-allowance` budget stood at $0.0512, $0.0526 and $0.0606 (`GET /end-users`, `spend` field). The overshoot is small, but a per-user cap that a user can exceed by 21% needs a documented rule (pre-request estimate? reservation?).
 - Key prefix is `otk_` where the docs say `tk_`.
 
 ## What worked well
 
 The `Otari-End-User-Budget` header and `GET /end-users`; `402 insufficient_funds` before credit; a sandbox with network that can `pip install` from git; and a guardrail contract simple enough to back with an open-weight model in an afternoon.
+
+## Where calling the provider directly would have been easier
+
+- The Bedrock adapter's `toolResult` 400 (bug 4): it fails mid tool loop, routing does not fall back, and the same request works on DeepInfra. We moved Bedrock out of the primary slot for tool-using requests.
+- The guardrail `url` that gets `/validate` appended (bug 1): an opaque 502 with no upstream status.
+- `max_tool_iterations` (bug 2): a hard 422 that loses the partial work and is still billed.
+
+## What we built ourselves that Otari could do
+
+- **A guardrail service.** Hosted Otari has no guardrail service configured, so `api/guard` implements the `/validate` contract with Qwen3Guard-Gen-8B, called through Otari.
+- **Budget read-back.** A key cannot read its own budget, ceiling or usage (401 "Invalid master key"), so the footer's pool line sums `GET /end-users` and shows the ceiling from our own setting.
+- **Guard input limits.** Our guard reads long input in overlapping windows and refuses input past four of them, and the sandbox error quoted back to the model in a repair turn is clipped to its last line, at most 300 characters: a probe (`194e59da-d5ea-4835-8366-be476338d2f9`) showed Qwen3Guard passing #5's injection text once it was quoted inside a `ModuleNotFoundError`. Tool results inside Otari's tool loop are not screened at all.
+- **The verdict gate.** The model writes with no code tool; Allowance runs the script with `POST /code/execute` and checks its shape first, so the model cannot grade its own test.

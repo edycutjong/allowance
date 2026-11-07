@@ -32,10 +32,10 @@
   <text class="t" x="613" y="270">Triage</text><text class="s" x="613" y="292">Llama-3.3-70B, bot key</text><text class="s" x="613" y="310">kind:* labels + welcome</text>
 
   <rect class="card" x="880" y="240" width="255" height="108" rx="6"/>
-  <text class="t" x="898" y="270">WRITE · coder</text><text class="s" x="898" y="292">Qwen3-Coder → Qwen3-VL</text><text class="s" x="898" y="310">routing policy + fallback</text><text class="s" x="898" y="328">GitHub MCP reads, user budget</text>
+  <text class="t" x="898" y="270">WRITE · coder</text><text class="s" x="898" y="292">Qwen3-Coder, policy step 1</text><text class="s" x="898" y="310">Qwen3-VL fallback configured</text><text class="s" x="898" y="328">GitHub MCP tools, user budget</text>
 
   <rect class="card" x="595" y="390" width="250" height="84" rx="6"/>
-  <text class="t" x="613" y="420">RUN · /code/execute</text><text class="s" x="613" y="442">Allowance runs the script</text><text class="s" x="613" y="460">billed to the contributor</text>
+  <text class="t" x="613" y="420">RUN · /code/execute</text><text class="s" x="613" y="442">Allowance runs the script</text><text class="s" x="613" y="460">tagged with the contributor</text>
 
   <rect class="card" x="880" y="390" width="255" height="84" rx="6"/>
   <text class="t" x="898" y="420">Budgets</text><text class="s" x="898" y="442">$0.05/day per contributor</text><text class="s" x="898" y="460">pool on the bot key</text>
