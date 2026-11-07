@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/icon.svg" alt="Allowance icon" width="144">
   <h1>Allowance 🧾</h1>
-  <p><em>Every outside contributor gets their own capped AI allowance. <code>/repro</code> reproduces a bug report in a sandbox, and the sandbox run, not the model, decides if it is real.</em></p>
+  <p><em>Maintainers can't hand an AI key to strangers, and a model saying "confirmed" is not evidence. Allowance gives every outside contributor a capped Otari allowance; on <code>/repro</code> an open-weight model writes a test, Otari's sandbox runs it, and the verdict is what the run did, not what the model believes.</em></p>
   <img src="docs/readme-hero.png" alt="Allowance: the model writes, the sandbox decides" width="100%">
 
   <br/>
@@ -43,9 +43,12 @@ Live proofs on the public demo repo [`edycutjong/allowance-demo`](https://github
 
 | Verdict | Issue | What happened |
 |---|---|---|
-| 🔴 Reproduced | [#1](https://github.com/edycutjong/allowance-demo/issues/1#issuecomment-6706198622) | `parse_duration('1h30m')`: expected 5400, got 3630. Sandbox return code 1. |
-| 🟢 Not reproduced | [#4](https://github.com/edycutjong/allowance-demo/issues/4#issuecomment-6706220636) | A report with no real bug. The script passed, return code 0. |
-| 🛡️ Blocked | [#5](https://github.com/edycutjong/allowance-demo/issues/5#issuecomment-6706212278) | Prompt injection in the issue text. Blocked by the guardrail, nothing charged. |
+| 🟡 Refused | [#7](https://github.com/edycutjong/allowance-demo/issues/7#issuecomment-6707750286) | The model's repair changed the expected value from 5 to 4. Allowance did not run it, and the Inconclusive comment says why. |
+| 🔴 Reproduced | [#6](https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6708001599) | Reported with a screenshot: `chunk([1, 2, 3, 4, 5], 2)` drops the `[5]`. Installed at `9259e59`, `REPRODUCED: expected [[1, 2], [3, 4], [5]], got [[1, 2], [3, 4]]`, sandbox return code 1. |
+| 🟢 Not reproduced | [#4](https://github.com/edycutjong/allowance-demo/issues/4#issuecomment-6708317077) | `dedupe()` is said to scramble order. It does not: the test passed at `9259e59`, return code 0, 19 s from comment to verdict. |
+| 🛡️ Blocked | [#5](https://github.com/edycutjong/allowance-demo/issues/5#issuecomment-6706212278) | An issue carrying prompt-injection text. Qwen3Guard flagged it (`Controversial (PII), score 0.6`) and Otari answered `403 guardrail_violation` before any triage or coder call; nothing charged to the contributor. |
+
+The first run that reproduced a bug, [#1](https://github.com/edycutjong/allowance-demo/issues/1#issuecomment-6706198622) (`parse_duration('1h30m')`: expected 5400, got 3630), predates the script gate and stays in the transcript.
 
 ## 🏗️ Architecture & Tech Stack
 
@@ -72,37 +75,39 @@ All four are open-weight. The fallback model is configured, but it has not serve
 
 ## 🏆 Otari Integration
 
-Each row links public runs (the first row two: coder on #1, triage on #4). "Request" is Otari's `otari-request-id`, also printed in the comment footer.
+Built on branch `otari` of [`edycutjong/allowance`](https://github.com/edycutjong/allowance/tree/otari); the first commit with Otari code is [`948f1b4`](https://github.com/edycutjong/allowance/commit/948f1b4). Rows follow the rubric's feature list. Each claimed row links a public comment; "request" is Otari's `otari-request-id`, also printed in that comment's footer.
 
-| Otari capability | How Allowance uses it | Proof |
+| Rubric feature | How Allowance uses it | Proof |
 |---|---|---|
-| Open-weight models, distinct roles | Coder, triage and guard are three different models | [#1](https://github.com/edycutjong/allowance-demo/issues/1#issuecomment-6706198622) coder `4a61771c-6c32-4e5a-ab19-d38168304386`; [#4](https://github.com/edycutjong/allowance-demo/issues/4#issuecomment-6706212151) triage `e6f27738-99be-4629-aeab-125d371eb737` |
-| Model routing | Every write goes to the policy `allowance-coder`, never to a fixed model | [#6](https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6708001599) request `c3709369-eae7-4d55-8c88-dba391c10472`, served by policy step 1, no fallback marker in the footer |
-| MCP integration | The model reads repo files through the GitHub MCP server | [#4](https://github.com/edycutjong/allowance-demo/issues/4#issuecomment-6706220636) footer `tools: mcp ×5`, request `35de16cb-5126-4417-a174-5db39f6a365b` |
-| Code execution | Allowance runs the written script with `POST /code/execute` | [#1](https://github.com/edycutjong/allowance-demo/issues/1#issuecomment-6706198622) sandbox return code 1 |
-| Guardrails | Issue text is screened by our own `/validate` service backed by Qwen3Guard | [#5](https://github.com/edycutjong/allowance-demo/issues/5#issuecomment-6706212278) `403 guardrail_violation`, request `435df9c0-93c0-461c-849b-1cf269873d34` |
-| Per-user budgets | Contributors are end users on `contributor-allowance`, $0.05 a day; the footer reads the balance back | [#4](https://github.com/edycutjong/allowance-demo/issues/4#issuecomment-6706212151) footer `$0.0000 of $0.05 left today · resets 2026-11-08 00:00 UTC` (read from Otari; this issue was opened by the owner before maintainers were moved to the pool) |
+| Model routing and fallbacks | Every write goes to the routing policy `allowance-coder`, never to a fixed model. The policy's Qwen3-VL fallback step is configured but has not fired in an app run (see Limits). | [#6](https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6708001599) request `c3709369-eae7-4d55-8c88-dba391c10472`, served by policy step 1, no fallback marker in the footer |
+| MCP integrations | While it writes the script, the model calls tools on the workspace's GitHub MCP server; the footer counts the calls. The verdict never depends on what MCP returned. | [#4](https://github.com/edycutjong/allowance-demo/issues/4#issuecomment-6708317077) footer `tools: mcp ×5`, request `b606e6b5-7158-4d5b-ba2c-cfaebdfd935c` |
+| Web search or web fetch | Not claimed. `web_fetch` is offered to the model but was called in none of the verdict runs (see Limits). | none |
+| Code execution | Allowance runs the written script with `POST /code/execute`; the return code and the exception ending stderr decide the verdict | [#6](https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6708001599) return code 1; [#4](https://github.com/edycutjong/allowance-demo/issues/4#issuecomment-6708317077) return code 0 |
+| Budgets and spending limits | Not claimed. The $5/month pool ceiling in the footer is the app's own setting, and no run has been refused by a key budget. | none |
+| Multiple models serving distinct roles | Coder, triage and guard are three different open-weight models | [#6](https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6708001599) coder `c3709369-eae7-4d55-8c88-dba391c10472`; [#7](https://github.com/edycutjong/allowance-demo/issues/7#issuecomment-6707516143) triage `db089b2e-a84e-4bc3-8ece-6d74dfe0a5d1`; [#5](https://github.com/edycutjong/allowance-demo/issues/5#issuecomment-6706212278) guard: the comment names `alibaba/qwen3guard-gen-8b` and its verdict |
+| Guardrails | Issue text is screened by our own `/validate` service backed by Qwen3Guard before the triage or coder model sees it | [#5](https://github.com/edycutjong/allowance-demo/issues/5#issuecomment-6706212278) `403 guardrail_violation`, request `435df9c0-93c0-461c-849b-1cf269873d34` |
+| Per-user budgets | A contributor's write and sandbox requests carry their Otari end-user id (`gh:<login>`) on the budget `contributor-allowance`, $0.05 a day; the footer reads the balance back from Otari | [#1](https://github.com/edycutjong/allowance-demo/issues/1#issuecomment-6705733501): the triage footer reads `$0.05 of $0.05 left today`; after that user's `/repro` runs, [the next footer](https://github.com/edycutjong/allowance-demo/issues/1#issuecomment-6706134836) reads `$0.0000 of $0.05 left today · this run cost $0.01` (the owner, charged as a contributor before maintainers moved to the pool) |
 
-The footer's "repository pool" line (see [issue #7](https://github.com/edycutjong/allowance-demo/issues/7), request `db089b2e-a84e-4bc3-8ece-6d74dfe0a5d1`) is the contributors' combined spend today, read from Otari's end-user records, next to a $5/month ceiling that the app displays from its own setting. It is not a read of Otari's monthly key budget (the footers posted so far label it "Otari key budget", which overstates it: the number is the configured setting), and no run was ever refused by that ceiling, so no table row claims it. Every request id above is printed in the footer of the linked comment; the ones from #6 and #7 are also in [evidence/live-runs.md](evidence/live-runs.md).
+The footer's "repository pool" line (see [issue #7](https://github.com/edycutjong/allowance-demo/issues/7), request `db089b2e-a84e-4bc3-8ece-6d74dfe0a5d1`) is the contributors' combined spend today, read from Otari's end-user records, next to a $5/month ceiling that the app displays from its own setting. It is not a read of Otari's monthly key budget (earlier footers label it "Otari key budget", which overstates it: the number is the configured setting), and no run was ever refused by that ceiling, so no table row claims it. The "19 contributors" are every end user in the Otari workspace: the owner plus 18 test users from development (`demo-*`, `probe-*`, `gh-test-*`). Every request id above is printed in the footer of the linked comment; the ones from #4, #6 and #7 are also in [evidence/live-runs.md](evidence/live-runs.md).
 
 ### How a verdict is made
 
-A model-written script runs only if it passes `lib/script-check.ts`: it installs this repository at a pinned commit, calls a project function the issue names, and raises the marker under a condition on that call's result. The verdict then reads only the exception that ends the sandbox's stderr. "Reproduced" means *the model's test failed when Allowance ran it*. The gate is a structural check, not proof that the model's expectation is right. Live examples: [#6](https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6708001599) reproduced at `9259e59`; [#7](https://github.com/edycutjong/allowance-demo/issues/7#issuecomment-6707750286), where a repair that changed the assertion was refused and the comment said so. Details: [evidence/live-runs.md](evidence/live-runs.md).
+A model-written script runs only if it passes `lib/script-check.ts`: it installs this repository at a pinned commit, calls a project function the issue names, and raises the marker under a condition on that call's result. The verdict then reads only the exception that ends the sandbox's stderr. "Reproduced" means *the model's test failed when Allowance ran it*. The gate is a structural check, not proof that the model's expectation is right. Live examples: [#6](https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6708001599) reproduced at `9259e59`; [#4](https://github.com/edycutjong/allowance-demo/issues/4#issuecomment-6708317077) not reproduced at `9259e59`; [#7](https://github.com/edycutjong/allowance-demo/issues/7#issuecomment-6707750286), where a repair that changed the assertion was refused and the comment said so. Details: [evidence/live-runs.md](evidence/live-runs.md).
 
 ## ⚠️ Limits
 
 - Otari guardrails screen the request text. MCP and web-fetch results and image content inside Otari's tool loop are **not** screened; we cannot screen them from outside. Allowance quotes at most 300 characters of the final sandbox error back to the model.
-- Per-user budgets: the daily contributor refusal (`403 budget_exceeded`, scope `user`) was observed once in development, from a direct API call with a test user and a large `max_tokens`. It is not shown in the app yet: no outside contributor has hit it.
+- Per-user budgets: the daily contributor refusal (`403 budget_exceeded`, scope `user`) was observed once in development, from a direct API call with a test user and a large `max_tokens`. It is not shown in the app yet: no outside contributor has hit it. Spend can also end slightly over the daily budget: on 2026-11-07, before the 00:00 UTC reset, three end users on the $0.05 budget stood at $0.0512, $0.0526 and $0.0606 (`GET /end-users`).
 - The routing fallback to Qwen3-VL did not fire on the screenshot in issue #6: the first target accepted the image ([live-runs.md](evidence/live-runs.md)). The web-fetch tool is offered to the model. It was called once in each of two early, non-verdict runs ([#1](https://github.com/edycutjong/allowance-demo/issues/1#issuecomment-6706134836), [#6](https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6707469074)) and in none of the verdict runs above, so it is not claimed.
 - A redelivered trigger whose run crashed is not rerun, to avoid a second charge. The failure comment that replaces the placeholder says to comment `/repro` again.
 - A write turn with a screenshot and five MCP reads can take about two minutes.
-- The demo bugs are in a repository we planted. Issues #1 to #7 are the development transcript, including early failed runs we kept. #1 and #4, and the first two `/repro` runs on #6, ran before the script gate and the pinned install; the #6 verdicts linked above (`9259e59`) and #7 ran under them.
+- The demo bugs are in a repository we planted. Issues #1 to #7 are the development transcript, including early failed runs we kept. #1, the first `/repro` on #4 and the first two on #6 ran before the script gate and the pinned install; the #4, #6 and #7 verdicts linked above (`9259e59`) ran under them.
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-Node 22+, an Otari workspace with a service key, a GitHub App (issues: write, contents: read; events: issues, issue comment), and a Vercel project.
+Node 22+, an Otari workspace with a service key (in Otari's key form, under "Show advanced"), a GitHub App (issues: write, contents: read; events: issues, issue comment), and a Vercel project.
 
 ### Installation
 
