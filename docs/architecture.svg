@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" width="1200" height="640" role="img" aria-labelledby="t d">
   <title id="t">Allowance architecture</title>
-  <desc id="d">A GitHub webhook reaches the Allowance function. Every contributor text passes the Otari guardrail, which calls Allowance's own validate endpoint backed by Qwen3Guard. A triage model labels the issue. On /repro the write model drafts a script, Allowance runs it in the Otari sandbox, and the exit code decides the verdict comment.</desc>
+  <desc id="d">A GitHub webhook reaches the Allowance function. Every contributor text passes the Otari guardrail, which calls Allowance's own validate endpoint backed by Qwen3Guard. A triage model labels the issue. On /repro the write model drafts a script, Allowance runs it in the Otari sandbox, and the sandbox result (return code and the exception that ends stderr) decides the verdict comment.</desc>
   <style>
     .bg{fill:#FAF8F3}.card{fill:#FFFDF8;stroke:#1B1A17;stroke-opacity:.16;stroke-width:1.5}
     .otari{fill:#F1ECE1;stroke:#8C7A4F;stroke-width:2;stroke-dasharray:6 5}
@@ -55,6 +55,6 @@
   <path class="a" d="M1007 348V369H720V390"/>
   <path class="a" d="M595 432H540L540 460H520"/>
   <path class="ad" d="M880 432H845"/>
-  <text class="s" x="40" y="590">Solid arrows: the request path. Dashed: spend is charged against the budget on the way.</text>
-  <text class="s" x="40" y="610">Verdict comes from the sandbox exit code; the model only wrote the script.</text>
+  <text class="s" x="40" y="590">Solid arrows: the request path. Dashed: contributor requests carry their Otari end-user id.</text>
+  <text class="s" x="40" y="610">The sandbox return code and its final exception decide; the model only wrote the script.</text>
 </svg>

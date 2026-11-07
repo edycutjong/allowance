@@ -34,7 +34,7 @@ Allowance is a GitHub App for open-source repositories, built on [Otari](https:/
 
 1. **Triage.** When an issue opens, a small open-weight model labels it and posts a welcome comment.
 2. **Allowance.** Each outside contributor is an Otari end user with a budget of $0.05 a day. The comment footer shows how much of it is left. Maintainers are charged to the repository pool instead.
-3. **`/repro`.** A code model, routed by an Otari policy, reads the issue and the repository through MCP and **writes** a short Python script. Allowance **runs** that script in Otari's sandbox. The verdict is the sandbox result: **Reproduced**, **Not reproduced** or **Inconclusive**. The model never grades itself.
+3. **`/repro`.** A code model, routed by an Otari policy, reads the issue, can call tools on the workspace's GitHub MCP server, and **writes** a short Python script. Allowance **runs** that script in Otari's sandbox. The verdict is the sandbox result: **Reproduced**, **Not reproduced** or **Inconclusive**. The model never grades itself.
 4. **Guardrail.** The issue text is screened before the triage or coder model sees it. A flagged issue gets a `403 guardrail_violation`, no triage or coder call, and nothing charged to the contributor (the guard check itself runs on the repository key).
 
 ## 📸 See it in Action
