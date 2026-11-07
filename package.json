@@ -1,0 +1,14 @@
+{
+  "name": "allowance",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --no-warnings --test test/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5"
+  }
+}
