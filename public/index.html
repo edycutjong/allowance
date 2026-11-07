@@ -82,7 +82,7 @@ nav.links a:hover{color:var(--ink)}
 
 /* hero */
 .hero{position:relative;padding:72px 0 88px;overflow:hidden}
-.guilloche{position:absolute;width:760px;height:760px;right:calc(50% - 760px);top:-150px;fill:none;stroke:var(--before);stroke-width:.55;opacity:.22;pointer-events:none}
+.guilloche{position:absolute;width:1040px;height:1040px;right:calc(50% - 820px);top:-90px;fill:none;stroke:var(--before);stroke-width:.75;opacity:.32;pointer-events:none}
 .hero .wrap{position:relative}
 .hero .wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:56px;align-items:center}
 h1{font:400 clamp(50px,6.2vw,96px)/.98 var(--font-display);letter-spacing:-.012em;margin:18px 0 24px;text-wrap:balance}
@@ -236,14 +236,16 @@ h2 em{color:inherit;font-style:italic}
 .shotcard figcaption{display:grid;gap:6px}
 
 /* how it decides */
-.steps{list-style:none;margin:0;padding:0;border-top:2px solid var(--ink)}
-.step{display:grid;grid-template-columns:110px minmax(0,1.1fr) minmax(0,1.4fr) 210px;gap:24px;padding:24px 0;border-bottom:1px solid var(--rule);align-items:baseline;transition:background .2s ease}
-.step:hover{background:rgba(255,253,248,.8)}
-.step .no{display:grid;grid-template-columns:auto;align-items:end;font:400 50px/1 var(--font-display);color:var(--pencil-ink)}
-
-.step h3{font:400 28px/1.1 var(--font-display);margin:0}
-.step p{margin:0;font-size:16.5px;line-height:1.5}
-.chip{justify-self:start;font:500 12.5px var(--font-data);border:1px solid var(--before);color:var(--ink);padding:4px 9px;background:var(--paper);overflow-wrap:anywhere}
+.steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:2px solid var(--ink);background:var(--paper)}
+.step{position:relative;display:flex;flex-direction:column;gap:10px;padding:26px 22px 24px 30px;border-left:2px solid var(--ink);transition:background .2s ease}
+.step:first-child{border-left:0}
+.step:hover{background:#fff}
+.step:not(:last-child)::after{content:"→";position:absolute;right:-17px;top:38px;width:32px;height:32px;background:var(--paper);border:2px solid var(--ink);border-radius:50%;font:500 15px/28px var(--font-data);text-align:center;z-index:2}
+.step .no{font:400 52px/1 var(--font-display);color:var(--pencil-ink)}
+.step h3{font:400 30px/1.05 var(--font-display);margin:0}
+.step p{margin:0;font-size:15.5px;line-height:1.5}
+.step .br{font:500 12.5px/1.45 var(--font-data);color:var(--muted);border-left:3px solid var(--rule);padding-left:10px}
+.chip{align-self:flex-start;margin-top:auto;font:500 12px var(--font-data);border:1px solid var(--before);color:var(--ink);padding:4px 8px;background:var(--bg);overflow-wrap:anywhere}
 .otari{margin-top:40px;display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:32px;align-items:start}
 .otari h3{font:400 30px/1.1 var(--font-display);margin:6px 0 10px}
 .otari p{margin:0;font-size:16px;color:#34312a}
@@ -254,7 +256,7 @@ h2 em{color:inherit;font-style:italic}
 .feat li.no span{color:var(--muted)}
 
 /* honest by design — the dark band */
-.honest{background:var(--mat);color:#E9E4D6;padding:104px 0;background-image:radial-gradient(700px 360px at 85% 0%,rgba(255,236,196,.08),transparent 70%)}
+.honest{background:var(--mat);color:#E9E4D6;padding:104px 0 72px;background-image:radial-gradient(700px 360px at 85% 0%,rgba(255,236,196,.08),transparent 70%)}
 .honest .lab{color:#A39C8C}
 .honest h2{color:#FAF8F3}
 .honest h2 em{color:inherit}
@@ -288,8 +290,11 @@ footer a{color:#E9E4D6}
 footer nav{display:flex;flex-wrap:wrap;gap:20px}
 
 @media (max-width:1080px){
-  .step{grid-template-columns:110px minmax(0,1fr);gap:8px 18px}
-  .step p,.step .chip{grid-column:2}
+  .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .step{border-left:0;border-top:2px solid var(--ink)}
+  .step:nth-child(-n+2){border-top:0}
+  .step:nth-child(even){border-left:2px solid var(--ink)}
+  .step::after{display:none}
   .bento{grid-template-columns:repeat(2,minmax(0,1fr))}
   .v.big{grid-column:span 2;grid-row:auto}.v.mid,.v.wide{grid-column:span 1}
   .notes{grid-template-columns:minmax(0,1fr)}
@@ -317,9 +322,11 @@ footer nav{display:flex;flex-wrap:wrap;gap:20px}
   .row .n{display:none}
   .hide-sm,.script-row{display:none}
   .guilloche{width:520px;height:520px;right:-200px;top:-120px}
-  .step{grid-template-columns:minmax(0,1fr);gap:10px}
-  .step p,.step .chip{grid-column:auto}
-  .step .no{font-size:38px}
+  .steps{grid-template-columns:minmax(0,1fr)}
+  .step:nth-child(even){border-left:0}
+  .step:nth-child(2){border-top:2px solid var(--ink)}
+  .step .no{font-size:40px}
+  .row .val.before{color:var(--before-ink)}
   .row pre{font-size:11.5px}
   .row.decide{min-height:0}
   .cert-hd{padding:12px 14px;flex-direction:column;gap:2px}
@@ -373,7 +380,7 @@ footer nav{display:flex;flex-wrap:wrap;gap:20px}
     <div class="hero-copy">
       <div class="lab reveal">GitHub App · built on Otari<span class="hide-sm"> · open-weight models only</span></div>
       <h1 id="h1" class="reveal">The bot that never takes <em>the model's word</em> for it.</h1>
-      <p class="sub reveal">Someone reports that <code>chunk()</code> drops the last item. You comment <code>/repro</code>: an open-weight model writes a short test, Otari's sandbox runs it, and the run answers <b>Reproduced, return code 1</b>, for <b>$0.0082</b> of model spend. Each outside contributor gets an allowance of <b>$0.05 a day</b>, so no stranger ever holds a key.</p>
+      <p class="sub reveal">Someone reports that <code>chunk()</code> drops the last item. You comment <code>/repro</code>: an open-weight model writes a short test, Otari's sandbox runs it, and the run answers <b>Reproduced, return code 1</b>, for <b>$0.0082</b> of model spend. Each outside contributor gets an allowance of <b>$0.05 a day</b>; the app spends on their behalf, and strangers never get a key.</p>
       <div class="ctas reveal">
         <a class="btn solid" href="https://github.com/edycutjong/allowance/tree/otari"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M5.3 4.2 1.5 8l3.8 3.8 1-1L3.5 8l2.8-2.8-1-1Zm5.4 0-1 1L12.5 8l-2.8 2.8 1 1L14.5 8l-3.8-3.8Z"/></svg>Source on GitHub</a>
         <a class="btn" href="/deck">Pitch deck</a>
@@ -381,7 +388,7 @@ footer nav{display:flex;flex-wrap:wrap;gap:20px}
       </div>
       <div class="strip reveal">
         <button class="copy" type="button" data-copy="/repro">/repro <span class="hint">copy</span></button>
-        <span>Otari request id in every footer · no database</span>
+        <span>Otari request id in every verdict footer · no database</span>
       </div>
     </div>
 
@@ -419,11 +426,11 @@ if actual != expected:
   <div class="wrap">
     <div class="lab">The turn</div>
     <h2 id="h-decides">The model writes the test. <em>The sandbox decides.</em></h2>
-    <p class="lede">The coder model has no code tool. It reads the issue (on #6, with five calls to the workspace's GitHub MCP server), returns a Python script, and stops. Allowance checks the script, runs it with <code>POST /code/execute</code>, and reads only the result. A model that agrees with the reporter cannot turn a passing run into a reproduction.</p>
+    <p class="lede">The coder model has no code tool. It reads the issue (on #6, with five GitHub MCP calls), returns a Python script, and stops. Allowance checks the script, runs it with <code>POST /code/execute</code>, and reads only the result. A passing run can never be reported as Reproduced; the gate cannot tell whether the model's expectation is right.</p>
     <div class="pair">
       <figure class="shot">
-        <img src="/media/comment-6.webp" width="1092" height="1254" loading="lazy" decoding="async" alt="The real allowance-bot comment on allowance-demo issue 6: Reproduced, the model's test failed when Allowance ran it. Sandbox return code 1. Footer with model, provider and Otari request c3709369.">
-        <figcaption>The comment as GitHub shows it, captured from the public issue. Footers posted before a later fix call the $5.00/month pool ceiling the "Otari key budget"; it is the app's own setting.</figcaption>
+        <img src="/media/comment-6-crop.webp" width="1092" height="888" loading="lazy" decoding="async" alt="The real allowance-bot comment on allowance-demo issue 6, cropped: Reproduced, the model's test failed when Allowance ran it; sandbox return code 1; footer with model $0.0082, provider deepinfra and Otari request c3709369.">
+        <figcaption>Captured from GitHub, cropped at the dashed line. Older footers call the $5.00/month ceiling the "Otari key budget"; it is the app's own setting.</figcaption>
       </figure>
       <div>
         <div class="term" id="term">
@@ -431,7 +438,7 @@ if actual != expected:
 <pre aria-label="Sandbox output for issue 6"><span class="ln c"># Allowance runs the model's script: POST /api/v1/code/execute</span><span class="ln err">AssertionError                            Traceback (most recent call last)Cell In[1], line 12</span><span class="ln">      8 from pocketkit.lists import chunk</span><span class="ln">      9 actual = list(chunk([1, 2, 3, 4, 5], 2))</span><span class="ln">     10 expected = [[1, 2], [3, 4], [5]]</span><span class="ln">     11 if actual != expected:</span><span class="ln">---&gt; 12     raise AssertionError("REPRODUCED: expected " + repr(expected) + ", got " + repr(actual))</span><span class="ln">     13 print("NOT REPRODUCED")</span><span class="ln hit">AssertionError: REPRODUCED: expected [[1, 2], [3, 4], [5]], got [[1, 2], [3, 4]]</span></pre>
           <p class="verdict-line"><span>return code 1 → stderr ends in the marker →</span><span class="mini-stamp">Reproduced</span></p>
         </div>
-        <p class="term-cap">The "Output" block of the same comment, lines in their real order; the first line is our annotation. The verdict is read from this run, not from the model.</p>
+        <p class="term-cap">The comment's "Output" block, lines in order; the first line is our annotation.</p>
       </div>
     </div>
   </div>
@@ -440,13 +447,13 @@ if actual != expected:
 <section class="s band" id="allowance" aria-labelledby="h-allow">
   <div class="wrap">
     <h2 id="h-allow">Strangers get an allowance, <em>not your key.</em></h2>
-    <p class="lede">Every outside contributor is an Otari end user, <code>gh:&lt;login&gt;</code>, on the budget <code>contributor-allowance</code>: $0.05 a day. Their write and sandbox requests carry that id, and each comment footer reads the balance back from Otari. Maintainers are charged to the repository pool instead.</p>
+    <p class="lede">Every outside contributor is an Otari end user, <code>gh:&lt;login&gt;</code>, on the budget <code>contributor-allowance</code>: $0.05 a day. Their write and sandbox requests carry that id, and each of their comment footers reads the balance back from Otari. Maintainers run on the repository's own key instead.</p>
     <div class="pb-grid">
       <div class="passbook" id="passbook">
         <div class="pb-hd"><b>Contributor passbook</b><span>gh:edycutjong · 2026-11-07 · times UTC</span></div>
         <ol class="entries">
           <li class="entry"><time>10:39</time><span class="what">Triage welcome on <a href="https://github.com/edycutjong/allowance-demo/issues/1#issuecomment-6705733501">#1</a><span class="note">Llama 3.3 70B labels the issue</span></span><span class="bal">$0.05 of $0.05</span></li>
-          <li class="entry"><time>11:18</time><span class="what"><code>/repro</code> on <a href="https://github.com/edycutjong/allowance-demo/issues/1#issuecomment-6706134836">#1</a><span class="note">footer: "this run cost $0.01"</span></span><span class="bal">$0.0000 of $0.05</span></li>
+          <li class="entry"><time>11:18</time><span class="what"><code>/repro</code> on <a href="https://github.com/edycutjong/allowance-demo/issues/1#issuecomment-6706134836">#1</a><span class="note">footer: "this run cost $0.01" · an early run, before the script gate</span></span><span class="bal">$0.0000 of $0.05</span></li>
           <li class="entry"><time>11:25</time><span class="what"><span class="gstamp">Blocked</span>issue <a href="https://github.com/edycutjong/allowance-demo/issues/5#issuecomment-6706212278">#5</a><span class="note">guardrail 403 · no triage or coder call · nothing charged to the contributor</span></span><span class="bal">$0.0000 of $0.05</span></li>
           <li class="entry"><time>00:00</time><span class="what">Resets 2026-11-08 00:00 UTC<span class="note">as printed in the footer</span></span><span class="bal">—</span></li>
         </ol>
@@ -461,13 +468,17 @@ if actual != expected:
           <div class="lab">Read this first</div>
           <h3>These are real footers, from the owner's account.</h3>
           <p>Before maintainers moved to the pool, the repository owner was charged as a contributor; these balances are that account's footers.</p>
-          <p>The refusal at the cap (<code>403 budget_exceeded</code>, scope <code>user</code>) was seen once in development, by a direct API call. No outside contributor has hit it in the app yet.</p>
         </div>
         <div class="slip">
-          <div class="lab">Maintainers</div>
-          <h3>The repository pool</h3>
-          <p class="data">$0.29 spent today by 19 contributors</p>
-          <p>From the triage footer on <a href="https://github.com/edycutjong/allowance-demo/issues/7">#7</a>, summed from Otari's end-user records: the 19 are the owner plus 18 test users from development. The $5.00/month ceiling beside it is the app's own setting, not a read of an Otari key budget.</p>
+          <div class="lab">Not yet shown in the app</div>
+          <h3>The refusal at the cap</h3>
+          <p><code>403 budget_exceeded</code>, scope <code>user</code>, was seen once in development by a direct API call; no outside contributor has hit it in the app. Spend can also end slightly over the daily budget (README · Limits).</p>
+        </div>
+        <div class="slip">
+          <div class="lab">Maintainer footers</div>
+          <h3>What the pool line counts</h3>
+          <p class="data">"$0.29 spent today by 19 contributors"</p>
+          <p>From the triage footer on <a href="https://github.com/edycutjong/allowance-demo/issues/7">#7</a>: the end users' combined spend, summed from Otari's records, mostly development test accounts; maintainer runs on the repository key are not in it. The $5.00/month ceiling beside it is the app's own setting.</p>
         </div>
       </div>
     </div>
@@ -476,7 +487,7 @@ if actual != expected:
 
 <section class="s" id="verdicts" aria-labelledby="h-verdicts">
   <div class="wrap">
-    <h2 id="h-verdicts">Four issues, four verdicts, all in public.</h2>
+    <h2 id="h-verdicts">Four issues, four outcomes, all in public.</h2>
     <p class="lede">Each is a comment on <a href="https://github.com/edycutjong/allowance-demo/issues">edycutjong/allowance-demo</a> with its Otari request id in the footer.</p>
     <div class="bento">
       <article class="v big">
@@ -484,8 +495,7 @@ if actual != expected:
         <h3><code>chunk()</code> drops the tail</h3>
         <span class="vstamp">Reproduced<span>rc 1</span></span>
         <div class="cmp"><span>expected</span><code class="b">[[1, 2], [3, 4], [5]]</code><span>got</span><code>[[1, 2], [3, 4]]</code></div>
-        <pre class="script" aria-label="Script that ran on issue 6"><span class="c"># the script that ran, from the comment</span>
-import subprocess, sys
+        <pre class="script" aria-label="Script that ran on issue 6">import subprocess, sys
 subprocess.run([sys.executable, "-m", "pip", "install", "-q", "git+https://github.com/edycutjong/allowance-demo@9259e59b6a72a243c91ea420df20788ef2b3c72a"], check=True)
 from pocketkit.lists import chunk
 actual = list(chunk([1, 2, 3, 4, 5], 2))
@@ -533,17 +543,17 @@ print("NOT REPRODUCED")</pre>
     <div class="lab">How it decides</div>
     <h2 id="h-steps">Five steps between an issue and a stamp.</h2>
     <ol class="steps">
-      <li class="step"><span class="no">01</span><h3>Screen</h3><p>The issue text goes to Otari with a guardrail attached. Our <code>/validate</code> service asks Qwen3Guard; a flagged issue gets <code>403 guardrail_violation</code>, and neither triage nor the coder is called.</p><span class="chip">qwen3guard-gen-8b</span></li>
+      <li class="step"><span class="no">01</span><h3>Screen</h3><p>The issue text goes to Otari with a guardrail attached. Our <code>/validate</code> service asks Qwen3Guard; a flagged issue gets <code>403 guardrail_violation</code>, and neither triage nor the coder is called.</p><p class="br">flagged → 403, stop</p><span class="chip">qwen3guard-gen-8b</span></li>
       <li class="step"><span class="no">02</span><h3>Triage</h3><p>Llama 3.3 70B labels the issue and posts a welcome whose footer shows the contributor's balance.</p><span class="chip">llama-3.3-70b-instruct</span></li>
       <li class="step"><span class="no">03</span><h3>Write</h3><p>On <code>/repro</code>, the routing policy sends the issue to Qwen3-Coder 480B Turbo, which may read the repository through GitHub MCP and returns a script. It cannot run code.</p><span class="chip">policy allowance-coder</span></li>
-      <li class="step"><span class="no">04</span><h3>Gate</h3><p>The script runs only if it installs the repository at a pinned commit, calls a function the issue names, and raises the marker on that call's result.</p><span class="chip">lib/script-check.ts</span></li>
+      <li class="step"><span class="no">04</span><h3>Gate</h3><p>The script runs only if it installs the repository at a pinned commit, calls a function the issue names, and raises the marker on that call's result.</p><p class="br">fails → not run</p><span class="chip">lib/script-check.ts</span></li>
       <li class="step"><span class="no">05</span><h3>Run</h3><p>Reproduced needs a failed run whose stderr ends in the marker's <code>AssertionError</code>. Not reproduced needs return code 0 and <code>NOT REPRODUCED</code> last. Anything else is Inconclusive.</p><span class="chip">POST /code/execute</span></li>
     </ol>
     <div class="otari">
       <div>
         <div class="lab">Otari, in the verdict path</div>
         <h3>Six features claimed, two not.</h3>
-        <p>Each claimed one links a public comment in the <a href="https://github.com/edycutjong/allowance/tree/otari#-otari-integration">README</a>. The two we have not proven in an app run are listed as not claimed.</p>
+        <p>Each claimed one links a public comment in the <a href="https://github.com/edycutjong/allowance/tree/otari#-otari-integration">README</a>. The two we have not shown in a linked verdict run are listed as not claimed.</p>
       </div>
       <ul class="feat">
         <li>Routing policy<span>claimed</span></li>
@@ -576,12 +586,12 @@ print("NOT REPRODUCED")</pre>
   <div class="wrap faq">
     <div><h2 id="h-faq">Questions a maintainer would ask</h2></div>
     <div class="faq-list">
-    <details><summary>Does the model decide the verdict?</summary><div class="a"><p>No. It writes a script and stops; it has no code tool. Allowance runs the script in Otari's sandbox and applies fixed rules to the result: return code, the exception that ends stderr, and the last line of stdout.</p></div></details>
-    <details><summary>Who pays when a stranger comments /repro?</summary><div class="a"><p>Their own Otari end-user allowance, $0.05 a day on the budget <code>contributor-allowance</code>. Owners, members and collaborators are charged to the repository pool. No one outside the project ever holds a key.</p></div></details>
-    <details><summary>What stops a malicious issue?</summary><div class="a"><p>The issue text is screened by Qwen3Guard through an Otari guardrail before triage or the coder sees it (#5 was blocked with a 403). Tool results and images inside Otari's tool loop are not screened. The verdict never depends on what MCP returned, and at most 300 characters of the final sandbox error are quoted back to the model.</p></div></details>
+    <details open><summary>Does the model decide the verdict?</summary><div class="a"><p>No. It writes a script and stops; it has no code tool. Allowance runs the script in Otari's sandbox and applies fixed rules to the result: return code, the exception that ends stderr, and the last line of stdout.</p></div></details>
+    <details><summary>Who pays when a stranger comments /repro?</summary><div class="a"><p>Their own Otari end-user allowance, $0.05 a day on the budget <code>contributor-allowance</code>. Owners, members and collaborators are charged to the repository pool. Strangers never get a key; the app spends on their behalf.</p></div></details>
+    <details><summary>What stops a malicious issue?</summary><div class="a"><p>Qwen3Guard screens the issue text through an Otari guardrail before triage or the coder sees it; #5 got a 403, flagged as PII rather than injection, and the guard once passed the same text reframed as an error line. Tool results and images in the tool loop are not screened; at most 300 characters of the final sandbox error go back to the model.</p></div></details>
     <details><summary>What if the model writes a useless test?</summary><div class="a"><p>A script that does not install the repository, call the named function and assert on its result is not run. A repair that changes the assertion is not run either: that is what happened on #7.</p></div></details>
-    <details><summary>Is the screenshot fallback proven?</summary><div class="a"><p>No. The policy lists Qwen3-VL as step 2, but on #6 the first target accepted the image, so nothing fell back. We say so in the README instead of claiming it.</p></div></details>
-    <details><summary>Are the bugs real?</summary><div class="a"><p>They are planted, in a small Python package written for the demo. The runs are real: every verdict is a public comment whose footer prints the Otari request id.</p></div></details>
+    <details><summary>Is the screenshot fallback proven?</summary><div class="a"><p>No. Qwen3-VL is step 2 of the policy, but on #6 the first target accepted the image, so nothing fell back.</p></div></details>
+    <details><summary>Are the bugs real?</summary><div class="a"><p>Planted, in a small Python package written for the demo. The runs are real: each verdict is a public comment with its Otari request id.</p></div></details>
     </div>
   </div>
 </section>
