@@ -6,7 +6,7 @@ Request ids are Otari's `otari-request-id`.
 ## Screenshot report (issue #6)
 
 Issue: https://github.com/edycutjong/allowance-demo/issues/6 · a bug report that carries a terminal screenshot
-(`docs/chunk-terminal.png`) of `chunk([1, 2, 3, 4, 5], 2)` returning `[[1, 2], [3, 4]]`.
+(`docs/chunk-terminal.png` in the allowance-demo repository) of `chunk([1, 2, 3, 4, 5], 2)` returning `[[1, 2], [3, 4]]`.
 
 | Step | Result | Model · provider | Otari request | Fallback header |
 |---|---|---|---|---|
@@ -24,8 +24,8 @@ What this shows, and what it does not:
 ## Idempotency
 
 A GitHub redelivery of the delivery that produced `/repro` #2 (comment 6707477932) was accepted by the webhook
-(HTTP 202, `redelivery: true`) and produced no new comment: issue #6 still has exactly 5 comments after it
-(triage, two `/repro`, two bot replies). Each bot reply to a `/repro` carries a hidden marker with the triggering
+(HTTP 202, `redelivery: true`) and produced no new comment: at that point issue #6 still had exactly 5 comments
+(triage, two `/repro`, two bot replies); later runs below added more. Each bot reply to a `/repro` carries a hidden marker with the triggering
 comment id; a second `/repro` while a "Reproducing…" placeholder is under 5 minutes old is ignored.
 Unit tests: `test/idempotency.test.ts`.
 
@@ -60,7 +60,7 @@ call's result (`lib/script-check.ts`); the verdict reads only the exception that
   `32ef6998-cc88-46fc-a6d2-32041c5b3fbd` (write) and `afd99192-d555-4431-b845-54b31ae4aa21` (repair turn).
   https://github.com/edycutjong/allowance-demo/issues/7#issuecomment-6707750286
 - Redelivery: the issue #6 `/repro` delivery (answered 202) was redelivered through the GitHub App API; the issue still
-  has one verdict comment for that trigger and 7 comments in total.
+  had one verdict comment for that trigger and 7 comments in total at that point.
 - Repair-turn screening probe (direct `chat/completions` shaped like a repair turn, no issue): Otari sent the guard an
   `input_text` of 281 characters — the last user message, which quoted #5's injection text as a `ModuleNotFoundError`
   line — and the guard model judged it Safe, so the request was not blocked. Request
@@ -69,6 +69,10 @@ call's result (`lib/script-check.ts`); the verdict reads only the exception that
 - Issue #6, `/repro` after the one-deadline change: **Could not finish** (`TimeoutError`) — the write turn (screenshot
   + five MCP reads) outran a 90 s ceiling; the placeholder was replaced, not left running.
   https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6707963195
+- Issue #4, `/repro` by the maintainer (2026-11-07 14:39 UTC, after the review of the judge-facing docs): **Not reproduced**,
+  installed at `9259e59`; the test asserts `dedupe([3, 1, 3, 2, 1]) == [3, 1, 2]` and passed, sandbox return code 0;
+  model $0.0060 + sandbox ×1; tools: mcp ×5; request `b606e6b5-7158-4d5b-ba2c-cfaebdfd935c`; 19 s from comment to verdict.
+  https://github.com/edycutjong/allowance-demo/issues/4#issuecomment-6708317077
 - Issue #6 again with a 150 s ceiling for the write turn: **Reproduced** at `9259e59`; model $0.0082 + sandbox ×1;
   tools: mcp ×5; request `c3709369-eae7-4d55-8c88-dba391c10472`; about 127 s from comment to verdict.
   https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6708001599
