@@ -8,16 +8,20 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <meta property="og:title" content="Allowance — for judges">
 <meta property="og:image" content="https://allowance.edycu.dev/media/og.png?v=0442177a">
+<link rel="preload" href="/fonts/instrument-serif-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/source-sans-3-var.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-@font-face{font-family:"Instrument Serif";src:url(/fonts/instrument-serif-400-normal.woff2) format("woff2");font-display:swap}
-@font-face{font-family:"Source Sans 3";src:url(/fonts/source-sans-3-var.woff2) format("woff2");font-weight:200 900;font-display:swap}
-@font-face{font-family:"IBM Plex Mono";src:url(/fonts/ibm-plex-mono-400-normal.woff2) format("woff2");font-display:swap}
+/* font-display:optional + preload: the page never re-flows when a font arrives late (CLS) */
+@font-face{font-family:"Instrument Serif";src:url(/fonts/instrument-serif-400-normal.woff2) format("woff2");font-display:optional}
+@font-face{font-family:"Source Sans 3";src:url(/fonts/source-sans-3-var.woff2) format("woff2");font-weight:200 900;font-display:optional}
+@font-face{font-family:"IBM Plex Mono";src:url(/fonts/ibm-plex-mono-400-normal.woff2) format("woff2");font-display:optional}
+@font-face{font-family:"Serif Fallback";src:local("Georgia");size-adjust:88%;ascent-override:96%;descent-override:26%}
 :root{--bg:#FAF8F3;--paper:#FFFDF8;--ink:#1B1A17;--muted:#6B665C;--rule:#D9D3C4;--after:#B3261E;--before-ink:#76683F}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.55 "Source Sans 3","Helvetica Neue",Arial,sans-serif}
 main{max-width:860px;margin:0 auto;padding:48px 22px 72px}
-h1{font:400 clamp(40px,7vw,64px)/1.02 "Instrument Serif",Georgia,serif;margin:0 0 14px}
-h2{font:400 30px/1.15 "Instrument Serif",Georgia,serif;margin:44px 0 12px;border-top:1px solid var(--rule);padding-top:22px}
+h1{font:400 clamp(40px,7vw,64px)/1.02 "Instrument Serif","Serif Fallback",Georgia,serif;margin:0 0 14px}
+h2{font:400 30px/1.15 "Instrument Serif","Serif Fallback",Georgia,serif;margin:44px 0 12px;border-top:1px solid var(--rule);padding-top:22px}
 .eyebrow{font:500 13px/1 "IBM Plex Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--before-ink)}
 .claim{font-size:21px;max-width:44em}
 code,.data{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:.84em}
