@@ -24,7 +24,7 @@ export function resetLabel(iso: string | null): string {
 export function poolLine(p: Pool | null | undefined): string {
   if (!p) return "";
   const atLeast = p.truncated ? "at least " : "";
-  return ` · repository pool: **${atLeast}${usd(p.spentToday)}** spent today by ${atLeast}${p.users} contributor${p.users === 1 ? "" : "s"}, ceiling ${usd(p.ceilingUsd)}/month (Otari key budget)`;
+  return ` · repository pool: **${atLeast}${usd(p.spentToday)}** spent today by ${atLeast}${p.users} contributor${p.users === 1 ? "" : "s"}, ceiling ${usd(p.ceilingUsd)}/month (app setting)`;
 }
 
 export const MAINTAINER = Symbol("maintainer");
