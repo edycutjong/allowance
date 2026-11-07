@@ -59,17 +59,22 @@ const tail = (s: string | undefined, n = 1200) => {
   return t.length > n ? "…" + t.slice(-n) : t;
 };
 
-export function toolSummary(res: ChatOk): string {
+export function toolSummary(res: ChatOk | ChatOk[]): string {
   const counts = new Map<string, number>();
-  for (const c of res.toolCalls) counts.set(c.type, (counts.get(c.type) ?? 0) + 1);
+  for (const c of [res].flat().flatMap((t) => t.toolCalls)) counts.set(c.type, (counts.get(c.type) ?? 0) + 1);
   if (!counts.size) return "no tools used";
   return [...counts].map(([k, v]) => `${k} ×${v}`).join(", ");
 }
 
 export function reproComment(login: string, r: ReproResult, a: Allowance | null | typeof MAINTAINER, pool?: Pool | null): string {
-  if (r.kind === "refused") return refusalComment(login, r.res, a, pool);
-  const footer = (res: ChatOk, model: number, runs: number) =>
-    `<sub>${allowanceLine(login, a, pool)} · this run: model ${usd(model)}${runs ? ` + sandbox ×${runs}` : ""} · tools: ${toolSummary(res)}<br>${traceLine(res.trace)}</sub>`;
+  if (r.kind === "refused") {
+    const c = refusalComment(login, r.res, a, pool);
+    return r.modelCostUsd ? `${c}\n<sub>The model had already written the script before this refusal: ${usd(r.modelCostUsd)}.</sub>` : c;
+  }
+  const footer = (res: ChatOk, model: number, runs: number, turns: ChatOk[] = [res]) =>
+    `<sub>${allowanceLine(login, a, pool)} · this run: model ${usd(model)}${runs ? ` + sandbox ×${runs}` : ""} · tools: ${toolSummary(turns)}<br>${traceLine(turns[0].trace)}${
+      turns.length > 1 ? ` · repair turn: Otari request \`${turns[turns.length - 1].trace.requestId ?? "?"}\`` : ""
+    }</sub>`;
   if (r.kind === "no_script") {
     return [
       "### ⚪ **Inconclusive**: no runnable script",
@@ -126,7 +131,8 @@ export function reproComment(login: string, r: ReproResult, a: Allowance | null 
     .map((l) => l.trim())
     .join("\n\n");
   if (note) lines.push(note, "");
-  lines.push("---", footer(res, r.modelCostUsd, runs.length));
+  const dispatched = runs.reduce((n, x) => n + Number(x.dispatches ?? 1), 0);
+  lines.push("---", footer(res, r.modelCostUsd, dispatched, r.turns));
   return lines.join("\n");
 }
 

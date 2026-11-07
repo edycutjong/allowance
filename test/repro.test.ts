@@ -330,3 +330,33 @@ test("issue text: models read a bounded body, the rest is named, not silently dr
   const m = userMessage({ ...issue, body: long }) as { content: string };
   assert.ok(m.content.length < MAX_ISSUE_CHARS + 500);
 });
+
+test("sandbox: a 500 is not retried (it may have run and billed), a 200 without return_code is not a run", async () => {
+  const { executeCode } = await import("../lib/otari.ts");
+  let n = 0;
+  const f500 = (async () => { n++; return new Response("{}", { status: 500 }); }) as unknown as typeof fetch;
+  const r = await executeCode("x", null, env, f500);
+  assert.equal(n, 1);
+  assert.equal(r.dispatches, 1);
+  const fBad = (async () => Response.json({ stdout: "hi" })) as unknown as typeof fetch;
+  const b = await executeCode("x", null, env, fBad);
+  assert.ok(b.error);
+  assert.equal(b.httpStatus, 502);
+});
+
+test("footer: after a repair the write turn's tools and request id stay visible; refusals keep the write cost", async () => {
+  const t1: any = { ok: true, status: 200, content: "", toolCalls: [{ id: "m", type: "mcp", status: "completed" }], costUsd: 0.004, trace: readTrace(new Headers({ "otari-request-id": "first" })) };
+  const t2: any = { ...t1, toolCalls: [], trace: readTrace(new Headers({ "otari-request-id": "second" })) };
+  const run = exec({ exit_code: 0, stdout: "NOT REPRODUCED", dispatches: 2 });
+  const c = reproComment("a", { kind: "ran", res: t2, turns: [t1, t2], verdict: verdictFrom([run as any]), runs: [run as any], modelCostUsd: 0.008 }, null);
+  assert.match(c, /tools: mcp ×1/);
+  assert.match(c, /Otari request `first` · repair turn: Otari request `second`/);
+  assert.match(c, /sandbox ×2/);
+  const refused = reproComment("a", { kind: "refused", modelCostUsd: 0.006, res: { ok: false, status: 403, code: "budget_exceeded", budgetScope: "user", retryAfterSec: null, detail: null, trace } }, null);
+  assert.match(refused, /already written the script before this refusal: \$0\.0060/);
+});
+
+test("triage: has_repro_steps must be the boolean true, not a truthy string", async () => {
+  const { parseTriage } = await import("../lib/triage.ts");
+  assert.equal(parseTriage('{"kind":"bug","has_repro_steps":"false","summary":"s"}')!.has_repro_steps, false);
+});

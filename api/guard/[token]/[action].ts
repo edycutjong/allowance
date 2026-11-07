@@ -30,7 +30,10 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ detail: "invalid json" }, { status: 400 });
   }
   console.log("guard request", ua, "keys=" + Object.keys(body).join(","), "len=" + (body.input_text ?? "").length);
-  const profile = body.profile ?? "prompt-injection";
+  if (typeof body !== "object" || body === null || (body.input_text != null && typeof body.input_text !== "string")) {
+    return Response.json({ detail: "input_text must be a string" }, { status: 400 });
+  }
+  const profile = typeof body.profile === "string" ? body.profile : "prompt-injection";
   const input = body.input_text ?? "";
   if (!input.trim()) return Response.json({ profile, result: { valid: true, explanation: "empty input", score: 0 } });
   // Every character the model will read is screened, or the request is refused (never truncated).

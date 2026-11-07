@@ -15,7 +15,7 @@ export function parseTriage(text: string): Triage | null {
     const kinds = ["bug", "feature", "question", "other"];
     return {
       kind: kinds.includes(j.kind) ? j.kind : "other",
-      has_repro_steps: Boolean(j.has_repro_steps),
+      has_repro_steps: j.has_repro_steps === true,
       summary: String(j.summary ?? "").slice(0, 200),
     };
   } catch {

@@ -167,6 +167,7 @@ export function execToToolCall(code: string, r: ExecResult): ToolCall {
     code,
     stdout: r.stdout,
     stderr: r.stderr,
+    dispatches: r.dispatches ?? 1,
   };
 }
 
@@ -180,7 +181,7 @@ const repairable = (stderr: string) => {
 };
 
 export type ReproResult =
-  | { kind: "ran"; res: ChatOk; verdict: Verdict; runs: ToolCall[]; modelCostUsd: number; revision?: string; repair?: string }
+  | { kind: "ran"; res: ChatOk; verdict: Verdict; runs: ToolCall[]; modelCostUsd: number; revision?: string; repair?: string; turns?: ChatOk[] }
   | { kind: "refused"; res: ChatErr; modelCostUsd?: number }
   | { kind: "no_script"; res: ChatOk; reason: string; modelCostUsd: number };
 
@@ -201,6 +202,7 @@ export async function runRepro(
   if (!res.ok) return { kind: "refused", res };
   let modelCost = res.costUsd;
   const runs: ToolCall[] = [];
+  const turns: ChatOk[] = [res]; // every model turn, so the footer keeps the write turn's tools and trace
 
   let keep: string | null = null; // the assertion a repair must not change
   let repairNote: string | undefined;
@@ -245,7 +247,8 @@ export async function runRepro(
     const next = await chat(key, repair, env, fetchImpl);
     if (!next.ok) break;
     res = next;
+    turns.push(next);
     modelCost += next.costUsd;
   }
-  return { kind: "ran", res, verdict: verdictFrom(runs), runs, modelCostUsd: modelCost, revision: cfg.revision, repair: repairNote };
+  return { kind: "ran", res, verdict: verdictFrom(runs), runs, modelCostUsd: modelCost, revision: cfg.revision, repair: repairNote, turns };
 }

@@ -108,9 +108,9 @@ export async function chat(
   return {
     ok: true,
     status: r.status,
-    content: json?.choices?.[0]?.message?.content ?? "",
-    toolCalls: (json?.otari_tool_calls ?? []) as ToolCall[],
-    costUsd: Number(json?.usage?.cost_usd ?? 0),
+    content: typeof json?.choices?.[0]?.message?.content === "string" ? json.choices[0].message.content : "",
+    toolCalls: Array.isArray(json?.otari_tool_calls) ? (json.otari_tool_calls as ToolCall[]) : [],
+    costUsd: Number.isFinite(Number(json?.usage?.cost_usd)) ? Number(json.usage.cost_usd) : 0,
     trace,
   };
 }
@@ -166,7 +166,15 @@ export function allowanceOf(user: EndUser | null, budgets: EndUserBudget[]): All
   };
 }
 
-export type ExecResult = { returnCode: number; stdout: string; stderr: string; requestId: string | null; httpStatus: number; error?: ChatErr };
+export type ExecResult = {
+  returnCode: number;
+  stdout: string;
+  stderr: string;
+  requestId: string | null;
+  httpStatus: number;
+  dispatches?: number; // POSTs sent (a retried run may have been billed twice)
+  error?: ChatErr;
+};
 
 // Direct sandbox run (POST /code/execute) billed to the end user on the service key.
 // The response carries no cost (Otari #2864); a run is billed $0.01 to the end user's budget.
@@ -185,9 +193,13 @@ export async function executeCode(
     });
     const requestId = r.headers.get("otari-request-id");
     const j: any = await r.json().catch(() => ({}));
-    if (r.ok) return { returnCode: Number(j.return_code ?? 1), stdout: j.stdout ?? "", stderr: j.stderr ?? "", requestId, httpStatus: r.status };
-    // retry once on a transient sandbox failure; budget refusals are final
-    if (r.status >= 500 && attempt === 0) continue;
+    const dispatches = attempt + 1;
+    if (r.ok && Number.isInteger(j.return_code)) {
+      return { returnCode: j.return_code, stdout: String(j.stdout ?? ""), stderr: String(j.stderr ?? ""), requestId, httpStatus: r.status, dispatches };
+    }
+    // Retry once only when the sandbox was unreachable (502/503); a 500 or 504 may have run the code and
+    // billed it already. Budget refusals are final.
+    if ((r.status === 502 || r.status === 503) && attempt === 0) continue;
     const ra = r.headers.get("retry-after");
     const error: ChatErr = {
       ok: false,
@@ -198,7 +210,9 @@ export async function executeCode(
       retryAfterSec: ra == null ? null : Number(ra),
       trace: readTrace(r.headers),
     };
-    return { returnCode: -1, stdout: "", stderr: `sandbox HTTP ${r.status}: ${JSON.stringify(j.detail ?? j).slice(0, 300)}`, requestId, httpStatus: r.status, error };
+    // a 200 without an integer return_code is not a run: treat it as an upstream fault, not as exit code 1
+    const status = r.ok ? 502 : r.status;
+    return { returnCode: -1, stdout: "", stderr: `sandbox HTTP ${r.status}: ${JSON.stringify(j.detail ?? j).slice(0, 300)}`, requestId, httpStatus: status, dispatches, error: { ...error, status } };
   }
 }
 
