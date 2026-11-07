@@ -66,6 +66,10 @@ export async function onIssueOpened(p: any, repo: Repo, E: WebhookEnv, f: typeof
     console.log("allowance skip triage", issue.number, "already-handled");
     return;
   }
+  if (!(await repo.claim(`/issues/${issue.number}`))) {
+    console.log("allowance skip triage", issue.number, "claimed by another delivery");
+    return;
+  }
   const { res, triage } = await runTriage(issue, { guardUrl: E.guardUrl }, E.otari, f);
   const maintainer = isMaintainer(p.issue.author_association);
   const [a, pool] = await Promise.all([maintainer ? Promise.resolve(MAINTAINER) : allowanceFor(issue.author, E.otari, f), poolFor(E, f)]);
@@ -90,15 +94,21 @@ export async function onRepro(p: any, repo: Repo, E: WebhookEnv, f: typeof fetch
     console.log("allowance skip /repro", p.comment.id, skip.why);
     return;
   }
-  await repo.react(p.comment.id, "eyes");
+  if (!(await repo.claim(`/issues/comments/${p.comment.id}`))) {
+    console.log("allowance skip /repro", p.comment.id, "claimed by another delivery");
+    return;
+  }
   const placeholder = await repo.comment(issue.number, RUNNING(login, p.comment.id));
   try {
     const revision = await repo.headSha().catch(() => undefined);
     const result = await runRepro(issue, login, { guardUrl: E.guardUrl, mcpServerIds: E.mcpServerIds, maintainer, revision }, E.otari, f);
     const [a, pool] = await Promise.all([maintainer ? Promise.resolve(MAINTAINER) : allowanceFor(login, E.otari, f), poolFor(E, f)]);
     await repo.editComment(placeholder.id, reproComment(login, result, a, pool) + "\n" + marker(p.comment.id));
-    if (result.kind === "ran") {
+    // a new outcome replaces the old verdict label; a refusal (budget, guard) leaves it alone
+    if (result.kind !== "refused") {
       for (const l of ["repro:yes", "repro:no", "repro:inconclusive", "repro:ready", "repro:needs-steps"]) await repo.removeLabel(issue.number, l);
+    }
+    if (result.kind === "ran") {
       const label = { reproduced: "repro:yes", not_reproduced: "repro:no", inconclusive: "repro:inconclusive" }[result.verdict.kind];
       await repo.addLabels(issue.number, [label]);
       await repo.react(p.comment.id, result.verdict.kind === "inconclusive" ? "-1" : "rocket");
@@ -130,6 +140,11 @@ export async function handleWebhook(req: Request, deps: Deps): Promise<Response>
     return Response.json({ error: "invalid json" }, { status: 400 });
   }
   if (p?.sender?.type === "Bot") return Response.json({ ignored: "bot" });
+  // No guard, no model calls: a missing GUARD_TOKEN must not quietly run unscreened issue text.
+  if (!E.guardUrl) {
+    console.error("allowance: GUARD_TOKEN is not set; refusing to call models");
+    return Response.json({ error: "guard not configured" }, { status: 503 });
+  }
 
   let job: ((repo: Repo) => Promise<void>) | null = null;
   if (event === "issues" && p.action === "opened") job = (r) => onIssueOpened(p, r, E, f);

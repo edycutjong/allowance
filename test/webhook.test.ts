@@ -12,6 +12,7 @@ const E: WebhookEnv = {
   secret: "shh",
   mcpServerIds: [],
   poolCeilingUsd: 5,
+  guardUrl: "https://g/api/guard/t",
 };
 
 type Comment = { id: number; body: string; created_at: string; user: { type: string } };
@@ -20,6 +21,7 @@ type Comment = { id: number; body: string; created_at: string; user: { type: str
 function world(opts: { comments?: Comment[]; chat?: (body: any) => Response; exec?: (body: any) => Response } = {}) {
   const calls: { method: string; url: string; body: any }[] = [];
   const comments: Comment[] = [...(opts.comments ?? [])];
+  const reactions = new Set<string>();
   let nextId = 1000;
   const f = (async (input: unknown, init: RequestInit = {}) => {
     const url = String(input);
@@ -34,6 +36,12 @@ function world(opts: { comments?: Comment[]; chat?: (body: any) => Response; exe
         const c = { id: nextId++, body: body.body, created_at: new Date().toISOString(), user: { type: "Bot" } };
         comments.push(c);
         return Response.json(c, { status: 201 });
+      }
+      if (method === "POST" && u.pathname.endsWith("/reactions")) {
+        const k = u.pathname + body.content; // GitHub: one reaction per user and content
+        const isNew = !reactions.has(k);
+        reactions.add(k);
+        return Response.json({ content: body.content }, { status: isNew ? 201 : 200 });
       }
       if (method === "PATCH") {
         const c = comments.find((x) => x.id === Number(u.pathname.split("/").pop()));
@@ -140,4 +148,18 @@ test("/repro: the run installs the default branch's head commit, and the verdict
   assert.match(ran!.body.code, new RegExp("o/r@" + "a".repeat(40)));
   assert.match(w.comments[0].body, /Reproduced/);
   assert.match(w.comments[0].body, /at `aaaaaaa`/);
+});
+
+test("claim: two deliveries of one /repro racing past the comment check run it once (👀 is the lock)", async () => {
+  const w = world();
+  await Promise.all([onRepro(reproEvent(), w.repo, E, w.f), onRepro(reproEvent(), w.repo, E, w.f)]);
+  assert.equal(w.comments.length, 1);
+  assert.equal(w.calls.filter((c) => c.url.endsWith("/chat/completions")).length, 1);
+});
+
+test("webhook: without a guard URL no model is called (503, fail closed)", async () => {
+  const jobs: Promise<unknown>[] = [];
+  const res = await handleWebhook(delivery("issue_comment", reproEvent()), { env: { ...E, guardUrl: undefined }, waitUntil: (p) => void jobs.push(p) });
+  assert.equal(res.status, 503);
+  assert.equal(jobs.length, 0);
 });

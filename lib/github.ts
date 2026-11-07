@@ -73,7 +73,21 @@ export class Repo {
   removeLabel(issue: number, label: string) {
     return this.call("DELETE", `/issues/${issue}/labels/${encodeURIComponent(label)}`).catch(() => null);
   }
-  react(commentId: number, content: "eyes" | "rocket" | "-1" | "+1") {
+  // Atomic claim on an issue ("/issues/7") or comment ("/issues/comments/55"): GitHub keeps one reaction
+  // per user and content, answering 201 when this app's 👀 is new and 200 when it already exists. Two
+  // deliveries racing on the same event therefore get one 201 between them; only that one does the work.
+  async claim(path: string): Promise<boolean> {
+    const r = await this.fetchImpl(`${API}/repos/${this.fullName}${path}/reactions`, {
+      method: "POST",
+      headers: { ...baseHeaders, Authorization: `Bearer ${this.token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "eyes" }),
+      signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
+    });
+    if (r.status === 201) return true;
+    if (r.status === 200) return false;
+    throw new Error(`GitHub claim ${path} -> ${r.status}`);
+  }
+    react(commentId: number, content: "eyes" | "rocket" | "-1" | "+1") {
     return this.call("POST", `/issues/comments/${commentId}/reactions`, { content }).catch(() => null);
   }
 }

@@ -49,4 +49,4 @@ if (process.env.ALLOWANCE_RAW) {
   await writeFile(process.env.ALLOWANCE_RAW, JSON.stringify(result, null, 2));
 }
 console.log(reproComment(as, result, allowance));
-console.error(`\n[dry-run] ${((Date.now() - t0) / 1000).toFixed(1)}s · ${result.kind === "ran" ? result.verdict.kind : result.res.code}`);
+console.error(`\n[dry-run] ${((Date.now() - t0) / 1000).toFixed(1)}s · ${result.kind === "ran" ? result.verdict.kind : result.kind === "refused" ? result.res.code : result.kind}`);
