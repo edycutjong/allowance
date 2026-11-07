@@ -45,6 +45,7 @@
   --kraft:   #F1EBDD;
   --mat:     #1B1A17;
   --pencil:  #A39C8C;
+  --pencil-ink: #857E70;
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:#E9E4D8;overflow:hidden}
@@ -63,7 +64,8 @@ body{font-family:var(--font-body);color:var(--ink)}
 h1,h2{font-family:var(--font-display);font-weight:400;letter-spacing:-.012em;margin:0}
 h1{font-size:118px;line-height:.98}
 h2{font-size:92px;line-height:1}
-h1 em,h2 em{color:var(--before)}
+h1 em{color:var(--before)}
+h2 em{color:inherit;font-style:italic}
 p{margin:0}
 code,.data{font-family:var(--font-data)}
 .big-sub{font-size:34px;line-height:1.4;color:#34312a;max-width:30em}
@@ -117,12 +119,12 @@ code,.data{font-family:var(--font-data)}
 .hook .big-sub{margin-top:56px;font-size:40px}
 
 /* slide 3 problem */
-.two{display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:70px}
-.opt{background:var(--paper);border:1.5px solid var(--rule);padding:44px 48px;position:relative}
-.opt h3{font:400 54px/1.08 var(--font-display);margin:14px 0 18px}
-.opt p{font-size:28px;line-height:1.45;color:#34312a}
-.opt .x{position:absolute;right:36px;top:34px;font:italic 400 34px var(--font-display);color:var(--muted);transform:rotate(-4deg);border:2px solid var(--muted);padding:2px 12px}
-.answer{margin-top:56px;font-size:36px;line-height:1.35;max-width:32em}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:56px;margin-top:auto}
+.opt{background:var(--paper);border:1.5px solid var(--rule);padding:56px 60px;position:relative;min-height:400px;display:flex;flex-direction:column;justify-content:center;box-shadow:0 30px 60px -44px rgba(27,26,23,.5)}
+.opt h3{font:400 72px/1.04 var(--font-display);margin:18px 0 22px}
+.opt p{font-size:34px;line-height:1.4;color:#34312a}
+.opt .x{position:absolute;right:44px;top:40px;font:italic 400 44px var(--font-display);color:var(--muted);transform:rotate(-4deg);border:2.5px solid var(--muted);padding:2px 16px 4px}
+.answer{margin:60px 0 auto;font-size:42px;line-height:1.35;max-width:32em}
 .answer b{font-weight:600}
 
 /* slide 4 the turn */
@@ -133,7 +135,7 @@ code,.data{font-family:var(--font-data)}
 .never{list-style:none;margin:20px 0 0;padding:0;border-top:2px solid var(--ink)}
 .never li{padding:24px 0;border-bottom:1px solid var(--rule);font-size:30px;line-height:1.3}
 .never li b{font-weight:600}
-.hint{margin-top:26px;font:500 16px var(--font-data);letter-spacing:.12em;text-transform:uppercase;color:var(--pencil)}
+.hint{margin-top:26px;font:500 16px var(--font-data);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 
 /* slide 5 live */
 .live{display:grid;grid-template-columns:560px 1fr;gap:90px;margin-top:40px;margin-left:56px;align-items:start}
@@ -170,7 +172,7 @@ code,.data{font-family:var(--font-data)}
 .note .data{font-size:24px}
 
 /* slide 7 flow */
-.flow{display:grid;grid-template-columns:repeat(5,1fr) 240px;gap:0;margin-top:auto;align-items:stretch}
+.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin-top:auto;align-items:stretch}
 .st{position:relative;border:2px solid var(--ink);border-left-width:0;background:var(--paper);padding:36px 28px 40px;min-height:430px;display:flex;flex-direction:column}
 .st:first-child{border-left-width:2px}
 .st .num{font:400 76px/1 var(--font-display);color:var(--pencil)}
@@ -178,14 +180,19 @@ code,.data{font-family:var(--font-data)}
 .st p{font-size:26px;line-height:1.35;color:#34312a}
 .st .chip{align-self:flex-start;margin-top:auto;font:500 19px var(--font-data);border:1.5px solid var(--before);padding:6px 12px}
 .st::after{content:"→";position:absolute;right:-22px;top:42%;width:40px;height:40px;background:var(--bg);font:400 30px/40px var(--font-data);text-align:center;z-index:2}
-.st:nth-child(5)::after{right:-26px}
-.end{display:grid;place-items:center;padding-left:40px}
-.end .vstamp{font-size:56px}
-.branches{display:grid;grid-template-columns:repeat(5,1fr) 240px;margin-bottom:auto}
-.br{padding:24px 26px 0;font:400 23px/1.45 var(--font-data);color:var(--muted);border-left:2px dashed var(--muted);margin-left:40px}
+.st:nth-child(5)::after{display:none}
+.outcomes{display:flex;align-items:center;gap:34px;margin:54px 0 auto}
+.outcomes .vstamp{font-size:44px}
+.st .br{margin-top:14px;padding-left:14px;font:500 20px/1.4 var(--font-data);color:var(--muted);border-left:3px solid var(--rule)}
 
 /* slide 8 otari */
-.depth{display:grid;grid-template-columns:1.25fr 1fr;gap:70px;margin:auto 0}
+.claims{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;margin-top:auto}
+.cl{position:relative;background:var(--paper);border:1.5px solid var(--rule);padding:34px 36px 30px;min-height:190px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 24px 50px -40px rgba(27,26,23,.5)}
+.cl::after{content:"claimed";position:absolute;right:22px;top:20px;font:500 14px var(--font-data);letter-spacing:.14em;text-transform:uppercase;border:1.5px solid var(--ink);padding:4px 10px;transform:rotate(-3deg)}
+.cl b{font:400 46px/1.05 var(--font-display);max-width:8em}
+.cl span{font:400 21px var(--font-data);color:var(--muted)}
+.notclaimed{display:flex;gap:44px;align-items:baseline;margin:40px 0 auto;padding-top:24px;border-top:2px dashed var(--rule);font-size:26px;color:var(--muted)}
+.notclaimed b{font:400 34px var(--font-display);color:var(--ink);margin-right:10px}
 .feat{list-style:none;margin:0;padding:0;border-top:2px solid var(--ink)}
 .feat li{display:grid;grid-template-columns:1fr auto;gap:8px 24px;padding:22px 0;border-bottom:1px solid var(--rule)}
 .feat b{font:400 42px/1.1 var(--font-display)}
@@ -198,7 +205,7 @@ code,.data{font-family:var(--font-data)}
 .frame.dark{background:var(--mat);background-image:radial-gradient(900px 500px at 85% 0%,rgba(255,236,196,.08),transparent 70%)}
 .frame.dark .lab,.frame.dark .foot{color:var(--pencil)}
 .frame.dark h2{color:#FAF8F3}
-.frame.dark h2 em{color:#CDB98A}
+.frame.dark h2 em{color:inherit}
 .quotes{display:grid;grid-template-columns:1.2fr 1fr 1fr;margin-top:60px;border-top:1.5px solid #3A3832}
 .q{padding:38px 40px 0 0;margin-right:40px}
 .q+.q{border-left:1.5px solid #3A3832;padding-left:40px}
@@ -218,9 +225,10 @@ code,.data{font-family:var(--font-data)}
 .qrbox p{margin-top:16px;font:500 20px var(--font-data)}
 
 /* chrome */
-.chrome{position:fixed;right:22px;bottom:16px;display:flex;gap:10px;align-items:center;z-index:30;font:500 14px var(--font-data);color:var(--muted)}
+.chrome{position:fixed;right:18px;top:14px;opacity:.6;transition:opacity .2s ease;display:flex;gap:10px;align-items:center;z-index:30;font:500 14px var(--font-data);color:var(--muted)}
 .chrome button{font:500 14px var(--font-data);background:var(--paper);border:1px solid var(--rule);color:var(--ink);padding:7px 12px;cursor:pointer;transition:border-color .18s ease,background .18s ease}
 .chrome button:hover{border-color:var(--ink);background:#fff}
+.chrome:hover,.chrome:focus-within{opacity:1}
 .chrome a{color:var(--ink)}
 .speaker-notes{display:none}
 .presenter .speaker-notes{display:block;position:absolute;left:0;right:0;bottom:0;height:20%;background:rgba(27,26,23,.94);color:#FAF8F3;padding:30px 170px;font-size:30px;line-height:1.4;z-index:5}
@@ -332,7 +340,7 @@ if actual != expected:
     </div>
   </div>
   <div class="foot"><span>Allowance · v0.1.0</span><span>request c3709369 · model $0.0082 + sandbox ×1</span></div>
-  <aside class="speaker-notes">Step through it: the claim, what the issue expects, the test the model wrote, what the sandbox measured. Then the stamp: return code 1, the marker assertion. The model never sees a sandbox while it writes.</aside>
+  <aside class="speaker-notes">Step through it: the claim, what the issue expects, the test the model wrote, what the sandbox measured. Then the stamp: return code 1, the marker assertion. The model never runs code; on a repair turn it sees at most 300 characters of the last error.</aside>
 </section>
 
 <section class="frame" data-title="Live" aria-label="Slide 5, four verdicts">
@@ -373,13 +381,13 @@ if actual != expected:
         <div class="pb-hd"><b>Contributor passbook</b><span>gh:edycutjong · 2026-11-07 UTC</span></div>
         <div class="entry"><time>10:39</time><span>Triage welcome on #1</span><span class="bal">$0.05 of $0.05</span></div>
         <div class="entry"><time>11:18</time><span><code>/repro</code> on #1 · run cost $0.01</span><span class="bal">$0.0000 of $0.05</span></div>
-        <div class="entry"><time>11:25</time><span><span class="gstamp">Blocked</span>#5 · nothing charged</span><span class="bal">$0.0000 of $0.05</span></div>
+        <div class="entry"><time>11:25</time><span><span class="gstamp">Blocked</span>#5 · no charge to the contributor</span><span class="bal">$0.0000 of $0.05</span></div>
         <div class="entry"><time>00:00</time><span>Resets 2026-11-08 00:00 UTC</span><span class="bal">—</span></div>
         <div class="meter"><div class="row2"><span>left today</span><span>spent</span></div><div class="meter-bar"></div></div>
       </div>
       <div class="side">
         <div class="note"><div class="lab">Read this first</div><h3>Real footers, owner's account</h3><p>Charged as a contributor before maintainers moved to the pool.</p></div>
-        <div class="note"><div class="lab">Maintainers</div><h3>Repository pool</h3><p class="data">$0.29 today · 19 contributors</p></div>
+        <div class="note"><div class="lab">Maintainers</div><h3>Repository pool</h3><p class="data">$0.29 today · 19 end users</p><p>The owner plus 18 development test users.</p></div>
       </div>
     </div>
   </div>
@@ -392,17 +400,13 @@ if actual != expected:
     <div class="lab">How it decides</div>
     <h2>Five steps, <em>one stamp.</em></h2>
     <div class="flow">
-      <div class="st"><div class="num">01</div><h3>Screen</h3><p>Guardrail on the issue text</p><span class="chip">qwen3guard-gen-8b</span></div>
-      <div class="st"><div class="num">02</div><h3>Triage</h3><p>Label + balance footer</p><span class="chip">llama-3.3-70b</span></div>
-      <div class="st"><div class="num">03</div><h3>Write</h3><p>Routing policy, GitHub MCP reads</p><span class="chip">allowance-coder</span></div>
-      <div class="st"><div class="num">04</div><h3>Gate</h3><p>Pinned install, named function, marker</p><span class="chip">script-check.ts</span></div>
-      <div class="st"><div class="num">05</div><h3>Run</h3><p>Return code + final stderr</p><span class="chip">/code/execute</span></div>
-      <div class="end"><span class="vstamp">Verdict</span></div>
+      <div class="st"><div class="num">01</div><h3>Screen</h3><p>Guardrail on the issue text</p><p class="br">flagged → 403, stop</p><span class="chip">qwen3guard-gen-8b</span></div>
+      <div class="st"><div class="num">02</div><h3>Triage</h3><p>Labels, balance footer</p><span class="chip">llama-3.3-70b</span></div>
+      <div class="st"><div class="num">03</div><h3>Write</h3><p>Routing policy, GitHub MCP calls; no code tool</p><span class="chip">allowance-coder</span></div>
+      <div class="st"><div class="num">04</div><h3>Gate</h3><p>Pinned install, named function, marker</p><p class="br">fails → not run</p><span class="chip">script-check.ts</span></div>
+      <div class="st"><div class="num">05</div><h3>Run</h3><p>Return code + the exception ending stderr</p><span class="chip">/code/execute</span></div>
     </div>
-    <div class="branches">
-      <div class="br">flagged → 403<br>no triage, no coder</div><div></div><div></div>
-      <div class="br">fails the gate →<br>not run</div><div></div><div></div>
-    </div>
+    <div class="outcomes"><span class="lab">One of three verdicts</span><span class="vstamp">Reproduced</span><span class="vstamp">Not reproduced</span><span class="vstamp">Inconclusive</span></div>
   </div>
   <div class="foot"><span>Allowance · v0.1.0</span><span>allowance.edycu.dev</span></div>
   <aside class="speaker-notes">Three open-weight models, three roles. The coder only writes. The gate refuses scripts that do not install the repository at a pinned commit, call the function the issue names and assert on its result. Reproduced needs the marker's AssertionError at the end of stderr.</aside>
@@ -412,22 +416,15 @@ if actual != expected:
   <div class="slide">
     <div class="lab">Otari, in the verdict path</div>
     <h2>Six claimed. <em>Two not.</em></h2>
-    <div class="depth">
-      <ul class="feat">
-        <li><b>Routing policy</b><span class="pf">allowance-coder · #6 c3709369</span><span class="ok">claimed</span></li>
-        <li><b>GitHub MCP</b><span class="pf">mcp ×5 · #4 b606e6b5</span><span class="ok">claimed</span></li>
-        <li><b>Code execution</b><span class="pf">#6 rc 1 · #4 rc 0</span><span class="ok">claimed</span></li>
-        <li><b>Guardrails</b><span class="pf">403 · #5 435df9c0</span><span class="ok">claimed</span></li>
-        <li><b>Per-user budgets</b><span class="pf">contributor-allowance · #1 footers</span><span class="ok">claimed</span></li>
-        <li><b>Three models, three roles</b><span class="pf">coder · triage db089b2e · guard</span><span class="ok">claimed</span></li>
-      </ul>
-      <div>
-        <ul class="feat no">
-          <li><b>Web search / fetch</b><span class="pf">offered, not called in a verdict run</span><span class="ok">not claimed</span></li>
-          <li><b>Key budget limits</b><span class="pf">$5 ceiling is the app's own setting</span><span class="ok">not claimed</span></li>
-        </ul>
-      </div>
+    <div class="claims">
+      <div class="cl"><b>Routing policy</b><span>allowance-coder · #6 c3709369</span></div>
+      <div class="cl"><b>GitHub MCP</b><span>mcp ×5 · #4 b606e6b5</span></div>
+      <div class="cl"><b>Code execution</b><span>#6 rc 1 · #4 rc 0</span></div>
+      <div class="cl"><b>Guardrails</b><span>403 · #5 435df9c0</span></div>
+      <div class="cl"><b>Per-user budgets</b><span>contributor-allowance · #1 footers</span></div>
+      <div class="cl"><b>Three models, three roles</b><span>coder · triage db089b2e · guard</span></div>
     </div>
+    <div class="notclaimed"><span class="lab">Not claimed</span><span><b>Web search / fetch</b> offered, not called in a verdict run</span><span><b>Key budget limits</b> the $5 ceiling is the app's own setting</span></div>
   </div>
   <div class="foot"><span>Allowance · v0.1.0</span><span>allowance.edycu.dev</span></div>
   <aside class="speaker-notes">Every claimed row links a public comment in the README, and every footer prints the Otari request id. The two we have not proven in an app run are listed as not claimed, on purpose.</aside>
@@ -438,7 +435,7 @@ if actual != expected:
     <div class="lab">Honest by design · README</div>
     <h2>What we have <em>not proven.</em></h2>
     <div class="quotes">
-      <figure class="q"><blockquote>"The routing fallback to Qwen3-VL did not fire on the screenshot in issue #6."</blockquote><cite>README · Limits · excerpt</cite></figure>
+      <figure class="q"><blockquote>"The routing fallback to Qwen3-VL did not fire on the screenshot in issue #6: the first target accepted the image."</blockquote><cite>README · Limits</cite></figure>
       <figure class="q"><blockquote>"The gate is a structural check, not proof that the model's expectation is right."</blockquote><cite>README · verdict</cite></figure>
       <figure class="q"><blockquote>"The demo bugs are in a repository we planted."</blockquote><cite>README · Limits</cite></figure>
     </div>
@@ -459,7 +456,7 @@ if actual != expected:
       <div>
         <div class="lab">The ask</div>
         <h2>Comment <em>/repro.</em> Read the stamp.</h2>
-        <p class="big-sub">Open an issue on the demo repository as yourself. Your own $0.05 allowance pays, and the footer shows it.</p>
+        <p class="big-sub">Open an issue on the demo repository as yourself. Your own $0.05 allowance is charged, and the footer shows the balance.</p>
         <div class="links"><span>github.com/edycutjong/allowance-demo</span><span>allowance.edycu.dev</span></div>
       </div>
       <div class="qrbox"><svg class="qr" viewBox="-2 -2 33 33" role="img" aria-label="QR code for https://allowance.edycu.dev/"><rect x="-2" y="-2" width="33" height="33" fill="#FFFDF8"/><path fill="#1B1A17" d="M0 0h1v1h-1zM1 0h1v1h-1zM2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM6 0h1v1h-1zM8 0h1v1h-1zM11 0h1v1h-1zM12 0h1v1h-1zM15 0h1v1h-1zM17 0h1v1h-1zM18 0h1v1h-1zM19 0h1v1h-1zM22 0h1v1h-1zM23 0h1v1h-1zM24 0h1v1h-1zM25 0h1v1h-1zM26 0h1v1h-1zM27 0h1v1h-1zM28 0h1v1h-1zM0 1h1v1h-1zM6 1h1v1h-1zM10 1h1v1h-1zM11 1h1v1h-1zM13 1h1v1h-1zM15 1h1v1h-1zM16 1h1v1h-1zM22 1h1v1h-1zM28 1h1v1h-1zM0 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM6 2h1v1h-1zM10 2h1v1h-1zM14 2h1v1h-1zM16 2h1v1h-1zM18 2h1v1h-1zM19 2h1v1h-1zM20 2h1v1h-1zM22 2h1v1h-1zM24 2h1v1h-1zM25 2h1v1h-1zM26 2h1v1h-1zM28 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM6 3h1v1h-1zM9 3h1v1h-1zM10 3h1v1h-1zM11 3h1v1h-1zM12 3h1v1h-1zM14 3h1v1h-1zM15 3h1v1h-1zM17 3h1v1h-1zM22 3h1v1h-1zM24 3h1v1h-1zM25 3h1v1h-1zM26 3h1v1h-1zM28 3h1v1h-1zM0 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM6 4h1v1h-1zM8 4h1v1h-1zM13 4h1v1h-1zM14 4h1v1h-1zM15 4h1v1h-1zM17 4h1v1h-1zM18 4h1v1h-1zM19 4h1v1h-1zM20 4h1v1h-1zM22 4h1v1h-1zM24 4h1v1h-1zM25 4h1v1h-1zM26 4h1v1h-1zM28 4h1v1h-1zM0 5h1v1h-1zM6 5h1v1h-1zM8 5h1v1h-1zM10 5h1v1h-1zM14 5h1v1h-1zM17 5h1v1h-1zM22 5h1v1h-1zM28 5h1v1h-1zM0 6h1v1h-1zM1 6h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM8 6h1v1h-1zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM16 6h1v1h-1zM18 6h1v1h-1zM20 6h1v1h-1zM22 6h1v1h-1zM23 6h1v1h-1zM24 6h1v1h-1zM25 6h1v1h-1zM26 6h1v1h-1zM27 6h1v1h-1zM28 6h1v1h-1zM9 7h1v1h-1zM10 7h1v1h-1zM11 7h1v1h-1zM12 7h1v1h-1zM16 7h1v1h-1zM20 7h1v1h-1zM1 8h1v1h-1zM2 8h1v1h-1zM3 8h1v1h-1zM4 8h1v1h-1zM5 8h1v1h-1zM6 8h1v1h-1zM7 8h1v1h-1zM10 8h1v1h-1zM13 8h1v1h-1zM16 8h1v1h-1zM18 8h1v1h-1zM19 8h1v1h-1zM20 8h1v1h-1zM23 8h1v1h-1zM24 8h1v1h-1zM28 8h1v1h-1zM0 9h1v1h-1zM1 9h1v1h-1zM4 9h1v1h-1zM7 9h1v1h-1zM10 9h1v1h-1zM12 9h1v1h-1zM13 9h1v1h-1zM17 9h1v1h-1zM18 9h1v1h-1zM19 9h1v1h-1zM20 9h1v1h-1zM22 9h1v1h-1zM23 9h1v1h-1zM24 9h1v1h-1zM25 9h1v1h-1zM26 9h1v1h-1zM28 9h1v1h-1zM3 10h1v1h-1zM6 10h1v1h-1zM7 10h1v1h-1zM12 10h1v1h-1zM13 10h1v1h-1zM15 10h1v1h-1zM17 10h1v1h-1zM20 10h1v1h-1zM21 10h1v1h-1zM22 10h1v1h-1zM23 10h1v1h-1zM26 10h1v1h-1zM0 11h1v1h-1zM1 11h1v1h-1zM3 11h1v1h-1zM4 11h1v1h-1zM7 11h1v1h-1zM10 11h1v1h-1zM11 11h1v1h-1zM12 11h1v1h-1zM16 11h1v1h-1zM20 11h1v1h-1zM21 11h1v1h-1zM22 11h1v1h-1zM24 11h1v1h-1zM25 11h1v1h-1zM27 11h1v1h-1zM5 12h1v1h-1zM6 12h1v1h-1zM10 12h1v1h-1zM11 12h1v1h-1zM13 12h1v1h-1zM14 12h1v1h-1zM15 12h1v1h-1zM17 12h1v1h-1zM21 12h1v1h-1zM23 12h1v1h-1zM26 12h1v1h-1zM27 12h1v1h-1zM28 12h1v1h-1zM2 13h1v1h-1zM5 13h1v1h-1zM8 13h1v1h-1zM12 13h1v1h-1zM13 13h1v1h-1zM14 13h1v1h-1zM19 13h1v1h-1zM20 13h1v1h-1zM21 13h1v1h-1zM22 13h1v1h-1zM24 13h1v1h-1zM25 13h1v1h-1zM27 13h1v1h-1zM28 13h1v1h-1zM1 14h1v1h-1zM2 14h1v1h-1zM3 14h1v1h-1zM4 14h1v1h-1zM5 14h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM8 14h1v1h-1zM9 14h1v1h-1zM10 14h1v1h-1zM11 14h1v1h-1zM12 14h1v1h-1zM16 14h1v1h-1zM18 14h1v1h-1zM20 14h1v1h-1zM23 14h1v1h-1zM27 14h1v1h-1zM4 15h1v1h-1zM7 15h1v1h-1zM8 15h1v1h-1zM9 15h1v1h-1zM14 15h1v1h-1zM16 15h1v1h-1zM18 15h1v1h-1zM24 15h1v1h-1zM25 15h1v1h-1zM3 16h1v1h-1zM5 16h1v1h-1zM6 16h1v1h-1zM7 16h1v1h-1zM9 16h1v1h-1zM12 16h1v1h-1zM15 16h1v1h-1zM18 16h1v1h-1zM21 16h1v1h-1zM25 16h1v1h-1zM26 16h1v1h-1zM0 17h1v1h-1zM3 17h1v1h-1zM5 17h1v1h-1zM8 17h1v1h-1zM9 17h1v1h-1zM11 17h1v1h-1zM12 17h1v1h-1zM15 17h1v1h-1zM16 17h1v1h-1zM18 17h1v1h-1zM19 17h1v1h-1zM20 17h1v1h-1zM21 17h1v1h-1zM22 17h1v1h-1zM23 17h1v1h-1zM24 17h1v1h-1zM25 17h1v1h-1zM27 17h1v1h-1zM28 17h1v1h-1zM0 18h1v1h-1zM2 18h1v1h-1zM3 18h1v1h-1zM6 18h1v1h-1zM8 18h1v1h-1zM9 18h1v1h-1zM10 18h1v1h-1zM14 18h1v1h-1zM17 18h1v1h-1zM22 18h1v1h-1zM23 18h1v1h-1zM24 18h1v1h-1zM25 18h1v1h-1zM0 19h1v1h-1zM5 19h1v1h-1zM7 19h1v1h-1zM11 19h1v1h-1zM16 19h1v1h-1zM20 19h1v1h-1zM22 19h1v1h-1zM25 19h1v1h-1zM27 19h1v1h-1zM0 20h1v1h-1zM3 20h1v1h-1zM4 20h1v1h-1zM5 20h1v1h-1zM6 20h1v1h-1zM8 20h1v1h-1zM10 20h1v1h-1zM17 20h1v1h-1zM20 20h1v1h-1zM21 20h1v1h-1zM22 20h1v1h-1zM23 20h1v1h-1zM24 20h1v1h-1zM26 20h1v1h-1zM28 20h1v1h-1zM8 21h1v1h-1zM9 21h1v1h-1zM12 21h1v1h-1zM13 21h1v1h-1zM14 21h1v1h-1zM16 21h1v1h-1zM17 21h1v1h-1zM18 21h1v1h-1zM20 21h1v1h-1zM24 21h1v1h-1zM25 21h1v1h-1zM27 21h1v1h-1zM28 21h1v1h-1zM0 22h1v1h-1zM1 22h1v1h-1zM2 22h1v1h-1zM3 22h1v1h-1zM4 22h1v1h-1zM5 22h1v1h-1zM6 22h1v1h-1zM8 22h1v1h-1zM9 22h1v1h-1zM13 22h1v1h-1zM14 22h1v1h-1zM15 22h1v1h-1zM17 22h1v1h-1zM19 22h1v1h-1zM20 22h1v1h-1zM22 22h1v1h-1zM24 22h1v1h-1zM0 23h1v1h-1zM6 23h1v1h-1zM8 23h1v1h-1zM10 23h1v1h-1zM11 23h1v1h-1zM12 23h1v1h-1zM14 23h1v1h-1zM16 23h1v1h-1zM17 23h1v1h-1zM18 23h1v1h-1zM19 23h1v1h-1zM20 23h1v1h-1zM24 23h1v1h-1zM25 23h1v1h-1zM28 23h1v1h-1zM0 24h1v1h-1zM2 24h1v1h-1zM3 24h1v1h-1zM4 24h1v1h-1zM6 24h1v1h-1zM8 24h1v1h-1zM10 24h1v1h-1zM13 24h1v1h-1zM16 24h1v1h-1zM20 24h1v1h-1zM21 24h1v1h-1zM22 24h1v1h-1zM23 24h1v1h-1zM24 24h1v1h-1zM25 24h1v1h-1zM26 24h1v1h-1zM27 24h1v1h-1zM0 25h1v1h-1zM2 25h1v1h-1zM3 25h1v1h-1zM4 25h1v1h-1zM6 25h1v1h-1zM8 25h1v1h-1zM10 25h1v1h-1zM11 25h1v1h-1zM12 25h1v1h-1zM14 25h1v1h-1zM15 25h1v1h-1zM18 25h1v1h-1zM19 25h1v1h-1zM20 25h1v1h-1zM21 25h1v1h-1zM23 25h1v1h-1zM25 25h1v1h-1zM0 26h1v1h-1zM2 26h1v1h-1zM3 26h1v1h-1zM4 26h1v1h-1zM6 26h1v1h-1zM8 26h1v1h-1zM9 26h1v1h-1zM13 26h1v1h-1zM14 26h1v1h-1zM15 26h1v1h-1zM16 26h1v1h-1zM18 26h1v1h-1zM19 26h1v1h-1zM20 26h1v1h-1zM21 26h1v1h-1zM22 26h1v1h-1zM23 26h1v1h-1zM24 26h1v1h-1zM27 26h1v1h-1zM0 27h1v1h-1zM6 27h1v1h-1zM8 27h1v1h-1zM9 27h1v1h-1zM13 27h1v1h-1zM15 27h1v1h-1zM20 27h1v1h-1zM22 27h1v1h-1zM24 27h1v1h-1zM25 27h1v1h-1zM27 27h1v1h-1zM0 28h1v1h-1zM1 28h1v1h-1zM2 28h1v1h-1zM3 28h1v1h-1zM4 28h1v1h-1zM5 28h1v1h-1zM6 28h1v1h-1zM14 28h1v1h-1zM15 28h1v1h-1zM17 28h1v1h-1zM19 28h1v1h-1zM21 28h1v1h-1zM22 28h1v1h-1zM24 28h1v1h-1zM25 28h1v1h-1zM26 28h1v1h-1z"/></svg><p>allowance.edycu.dev</p></div>
