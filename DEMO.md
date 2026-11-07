@@ -1,6 +1,6 @@
 # Demo: six beats
 
-Everything below is on the public repo [`edycutjong/allowance-demo`](https://github.com/edycutjong/allowance-demo), the repository used for this demo. Each beat links the exact comment. Request ids are Otari's `otari-request-id`; the same id is printed in each comment footer. Issues #1 to #7 are the development transcript and keep their early failed runs. Beats 1 to 3 ran under the current script gate and pinned install (`9259e59`); beat 6 shows where it started. Measured details: [evidence/live-runs.md](evidence/live-runs.md).
+Everything below is on the public repo [`edycutjong/allowance-demo`](https://github.com/edycutjong/allowance-demo), the repository used for this demo. Each beat links the exact comment. Request ids are Otari's `otari-request-id`; the same id is printed in each comment footer. Issues #1 to #7 (and #8 to #10, triage only) are the development transcript and keep their early failed runs. Beats 1 to 3 ran under the current script gate and pinned install (`9259e59`); beat 6 shows where it started. Measured details: [evidence/live-runs.md](evidence/live-runs.md).
 
 ## 1. The verdict gate refuses a changed assertion
 

@@ -14,7 +14,7 @@ Also: with no `url`, the hosted gateway answers 502 "no guardrails service is co
 ### 2. `max_tool_iterations` is a hard 422 and the request is still billed
 
 Repro: `chat/completions` with `tools`, `mcp_server_ids` and `max_tool_iterations: 6` on a task that needs more rounds.
-Observed: `422 "Exceeded max_tool_iterations=6"`, partial work lost, request `eaad9ab3-9770-4f84-b47b-16135c42b6e6` was still billed, no `Otari-Error-Code`.
+Observed: `422 "Exceeded max_tool_iterations=6"`, partial work lost, request `eaad9ab3-9770-4f84-b47b-16135c42b6e6` (billing not recorded), no `Otari-Error-Code`.
 Expected: the MCP docs say the last allowed round offers no Otari tools and makes the model answer.
 
 ### 3. MCP embedded-resource text is not passed to the model
@@ -26,7 +26,7 @@ Expected: forward the embedded resource text.
 ### 4. Bedrock adapter rejects tool results as `toolResult.json`
 
 Repro: policy whose provider is Bedrock Qwen3-Coder 480B, with `tools` and `mcp_server_ids`.
-Observed: `400 "The format of the value at messages.N.content.0.toolResult.content.0.json is invalid. Provide a json object"`, request `81916d1b-9ae2-49fd-82e6-956d54b59245`. Intermittent, depends on which tool ran first. The same request works on DeepInfra models. Routing fallback does not catch it (a 400 after a tool call started), and the 400 has no `Otari-Error-Code`.
+Observed: `400 "The format of the value at messages.N.content.0.toolResult.content.0.json is invalid. Provide a json object"`, request `81916d1b-9ae2-49fd-82e6-956d54b59245`. Seen on more than one run; not recorded per run. The same request works on DeepInfra models. Routing fallback does not catch it (a 400 after a tool call started), and the 400 has no `Otari-Error-Code`.
 
 ## Documentation gaps and small papercuts
 
