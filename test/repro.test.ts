@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { buildReproRequest, endUserId, verdictFrom, type Issue } from "../lib/repro.ts";
 import { commandIn, imageUrlsIn, parseIssueUrl } from "../lib/github-issue.ts";
 import { allowanceOf, readTrace } from "../lib/otari.ts";
-import { refusalComment, reproComment, resetLabel } from "../lib/comment.ts";
+import { MAINTAINER, allowanceLine, poolLine, refusalComment, reproComment, resetLabel } from "../lib/comment.ts";
+import { getPool } from "../lib/otari.ts";
 
 const issue: Issue = {
   repo: "o/r",
@@ -225,4 +226,27 @@ test("maintainers run on the repo pool key with no end user; contributors on the
   seen.length = 0;
   await runRepro(issue, "Contrib", {}, env, f);
   assert.deepEqual(seen.map((s) => [s.auth, s.body.user]), [["Bearer s", "gh:contrib"], ["Bearer s", "gh:contrib"]]);
+});
+
+test("pool: footer shows the repository pool next to the contributor allowance, and for maintainers", () => {
+  const pool = { spentToday: 0.281026, users: 19, ceilingUsd: 5 };
+  assert.match(poolLine(pool), /repository pool: \*\*\$0\.28\*\* spent today by 19 contributors, ceiling \$5\.00\/month/);
+  assert.equal(poolLine(null), "");
+  assert.match(allowanceLine("bob", { limit: 0.05, spent: 0.01, left: 0.04, resetsAt: null }, pool), /\$0\.04 of \$0\.05 left today.*repository pool/);
+  assert.match(allowanceLine("ana", MAINTAINER, pool), /maintainer: charged to the repository pool.*\$0\.28/);
+});
+
+test("pool: getPool sums end-user spend and counts users", async () => {
+  const f = (async () => new Response(JSON.stringify([{ spend: 0.05, reserved: 0 }, { spend: 0.0123, reserved: 0 }]))) as typeof fetch;
+  const p = await getPool({ OTARI_SERVICE_KEY: "k" }, 5, f);
+  assert.equal(p.users, 2);
+  assert.ok(Math.abs(p.spentToday - 0.0623) < 1e-9);
+  assert.equal(p.ceilingUsd, 5);
+});
+
+test("403 budget_exceeded with scope api_token says the repository pool is exhausted this month", () => {
+  const c = refusalComment("ana", { ok: false, status: 403, code: "budget_exceeded", budgetScope: "api_token", retryAfterSec: null, detail: null, trace }, null, { spentToday: 1, users: 3, ceilingUsd: 5 });
+  assert.match(c, /Repository pool exhausted this month/);
+  assert.match(c, /scope `api_token`/);
+  assert.doesNotMatch(c, /ana's daily allowance/);
 });

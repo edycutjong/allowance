@@ -4,8 +4,9 @@
 import { waitUntil } from "@vercel/functions";
 import { MAINTAINER, RUNNING, reproComment, refusalComment, welcomeComment } from "../lib/comment.js";
 import { issueFromApi, commandIn } from "../lib/github-issue.js";
+import { marker, reproSkip } from "../lib/idempotency.js";
 import { installationToken, Repo, verifySignature } from "../lib/github.js";
-import { allowanceOf, getEndUser, getEndUserBudgets, type OtariEnv } from "../lib/otari.js";
+import { allowanceOf, getEndUser, getEndUserBudgets, getPool, type OtariEnv, type Pool } from "../lib/otari.js";
 import { endUserId, runRepro } from "../lib/repro.js";
 import { runTriage, triageLabels } from "../lib/triage.js";
 
@@ -36,18 +37,26 @@ async function allowanceFor(login: string, o: OtariEnv) {
   }
 }
 
+async function poolFor(o: OtariEnv): Promise<Pool | null> {
+  try {
+    return await getPool(o, Number(process.env.POOL_CEILING_USD ?? 5));
+  } catch {
+    return null;
+  }
+}
+
 async function onIssueOpened(p: any, repo: Repo) {
   const issue = issueFromApi(repo.fullName, p.issue);
   const E = env();
   const { res, triage } = await runTriage(issue, { guardUrl: E.guardUrl }, E.otari);
-  const a = await allowanceFor(issue.author, E.otari);
+  const [a, pool] = await Promise.all([allowanceFor(issue.author, E.otari), poolFor(E.otari)]);
   if (!res.ok) {
     if (res.code === "guardrail_violation") await repo.addLabels(issue.number, ["allowance:blocked"]);
-    await repo.comment(issue.number, refusalComment(issue.author, res, a));
+    await repo.comment(issue.number, refusalComment(issue.author, res, a, pool));
     return;
   }
   if (triage) await repo.addLabels(issue.number, triageLabels(triage));
-  await repo.comment(issue.number, welcomeComment(issue.author, triage, a, res.trace));
+  await repo.comment(issue.number, welcomeComment(issue.author, triage, a, res.trace, pool));
 }
 
 async function onRepro(p: any, repo: Repo) {
@@ -55,11 +64,16 @@ async function onRepro(p: any, repo: Repo) {
   const maintainer = ["OWNER", "MEMBER", "COLLABORATOR"].includes(p.comment.author_association);
   const issue = issueFromApi(repo.fullName, p.issue);
   const E = env();
+  const skip = reproSkip(await repo.listComments(issue.number), p.comment.id);
+  if (skip.skip) {
+    console.log("allowance skip /repro", p.comment.id, skip.why);
+    return;
+  }
   await repo.react(p.comment.id, "eyes");
-  const placeholder = await repo.comment(issue.number, RUNNING(login));
+  const placeholder = await repo.comment(issue.number, RUNNING(login, p.comment.id));
   const result = await runRepro(issue, login, { guardUrl: E.guardUrl, mcpServerIds: E.mcpServerIds, maintainer }, E.otari);
-  const a = maintainer ? MAINTAINER : await allowanceFor(login, E.otari);
-  await repo.editComment(placeholder.id, reproComment(login, result, a));
+  const [a, pool] = await Promise.all([maintainer ? Promise.resolve(MAINTAINER) : allowanceFor(login, E.otari), poolFor(E.otari)]);
+  await repo.editComment(placeholder.id, reproComment(login, result, a, pool) + "\n" + marker(p.comment.id));
   if (result.kind === "ran") {
     for (const l of ["repro:yes", "repro:no", "repro:inconclusive", "repro:ready", "repro:needs-steps"]) await repo.removeLabel(issue.number, l);
     const label = { reproduced: "repro:yes", not_reproduced: "repro:no", inconclusive: "repro:inconclusive" }[result.verdict.kind];

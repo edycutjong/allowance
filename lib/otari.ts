@@ -191,3 +191,19 @@ export async function executeCode(
     return { returnCode: -1, stdout: "", stderr: `sandbox HTTP ${r.status}: ${JSON.stringify(j.detail ?? j).slice(0, 300)}`, requestId, httpStatus: r.status, error };
   }
 }
+
+// The repository pool, as far as a service key can see it: the key-scoped budget and usage routes
+// are master-key only (401), so the pool is shown as the contributors' combined spend on the
+// service key today (sum of end-user spend; per-user budgets reset daily) next to the configured key ceiling.
+export type Pool = { spentToday: number; users: number; ceilingUsd: number };
+
+export async function getPool(
+  env: Pick<OtariEnv, "OTARI_BASE_URL" | "OTARI_SERVICE_KEY">,
+  ceilingUsd = 5,
+  fetchImpl: typeof fetch = fetch,
+): Promise<Pool> {
+  const r = await fetchImpl(`${baseUrl(env)}/end-users?limit=1000`, { headers: { Authorization: `Bearer ${env.OTARI_SERVICE_KEY}` } });
+  if (!r.ok) throw new Error(`end-users ${r.status}`);
+  const list = (await r.json()) as Pick<EndUser, "spend" | "reserved">[];
+  return { spentToday: list.reduce((n, u) => n + (u.spend ?? 0), 0), users: list.length, ceilingUsd };
+}

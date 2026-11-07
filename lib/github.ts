@@ -49,6 +49,9 @@ export class Repo {
   comment(issue: number, body: string) {
     return this.call("POST", `/issues/${issue}/comments`, { body }) as Promise<{ id: number; html_url: string }>;
   }
+  async listComments(issue: number): Promise<{ id: number; body: string; created_at: string; user?: { type?: string } }[]> {
+    return (await this.call("GET", `/issues/${issue}/comments?per_page=100`)) as any;
+  }
   editComment(id: number, body: string) {
     return this.call("PATCH", `/issues/comments/${id}`, { body });
   }
