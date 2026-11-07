@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Allowance — an allowance ticket struck by a red stamp carrying ≠: the sandbox measured something other than the claim">
+  <title>Allowance</title>
+  <defs><linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#FFFDF8"/><stop offset="1" stop-color="#F2EDE1"/></linearGradient></defs>
+  <g transform="translate(41 41) scale(.84)">
+  <path d="M58 120H454A26 26 0 0 1 480 146V220A36 36 0 0 0 480 292V366A26 26 0 0 1 454 392H58A26 26 0 0 1 32 366V292A36 36 0 0 0 32 220V146A26 26 0 0 1 58 120Z" fill="none" stroke="#FAF8F3" stroke-width="38" stroke-linejoin="round"/>
+  <path d="M58 120H454A26 26 0 0 1 480 146V220A36 36 0 0 0 480 292V366A26 26 0 0 1 454 392H58A26 26 0 0 1 32 366V292A36 36 0 0 0 32 220V146A26 26 0 0 1 58 120Z" fill="url(#paper)" stroke="var(--ink, #1B1A17)" stroke-width="26" stroke-linejoin="round"/>
+  <path d="M168 150V362" stroke="var(--ink, #1B1A17)" stroke-width="7" stroke-dasharray="11 13" stroke-linecap="round" opacity=".5"/>
+  <path d="M100 226H142M100 256H132M100 286H142" stroke="var(--primary, #8C7A4F)" stroke-width="12" stroke-linecap="round"/>
+  <g transform="rotate(-8 306 256)" fill="none" stroke="var(--accent, #B3261E)">
+    <rect x="200" y="184" width="212" height="144" rx="14" stroke-width="24"/>
+    <rect x="222" y="206" width="168" height="100" rx="6" stroke-width="6"/>
+    <path d="M266 238H346M266 274H346" stroke-width="20" stroke-linecap="round"/>
+    <path d="M327 212L285 300" stroke-width="20" stroke-linecap="round"/>
+  </g>
+  </g>
+</svg>

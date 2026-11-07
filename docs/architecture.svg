@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" width="1200" height="640" role="img" aria-labelledby="t d">
+  <title id="t">Allowance architecture</title>
+  <desc id="d">A GitHub webhook reaches the Allowance function. Every contributor text passes the Otari guardrail, which calls Allowance's own validate endpoint backed by Qwen3Guard. A triage model labels the issue. On /repro the write model drafts a script, Allowance runs it in the Otari sandbox, and the exit code decides the verdict comment.</desc>
+  <style>
+    .bg{fill:#FAF8F3}.card{fill:#FFFDF8;stroke:#1B1A17;stroke-opacity:.16;stroke-width:1.5}
+    .otari{fill:#F1ECE1;stroke:#8C7A4F;stroke-width:2;stroke-dasharray:6 5}
+    .t{font:600 17px ui-monospace,Menlo,monospace;fill:#1B1A17}.s{font:13px ui-monospace,Menlo,monospace;fill:#6B665C}
+    .h{font:600 14px ui-monospace,Menlo,monospace;fill:#8C7A4F;letter-spacing:.08em}
+    .a{stroke:#1B1A17;stroke-width:1.6;fill:none;marker-end:url(#m)}.ad{stroke:#6B665C;stroke-width:1.4;fill:none;stroke-dasharray:5 4;marker-end:url(#m)}
+    .stamp{fill:#FFFDF8;stroke:#B3261E;stroke-width:2.5}.st{font:700 14px ui-monospace,Menlo,monospace;fill:#B3261E}
+  </style>
+  <defs><marker id="m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#1B1A17"/></marker></defs>
+  <rect class="bg" width="1200" height="640"/>
+  <text class="h" x="40" y="40">ALLOWANCE · THE MODEL WRITES, THE SANDBOX DECIDES</text>
+
+  <rect class="card" x="40" y="90" width="190" height="90" rx="6"/>
+  <text class="t" x="60" y="124">GitHub</text><text class="s" x="60" y="146">issue opened</text><text class="s" x="60" y="164">comment "/repro"</text>
+
+  <rect class="card" x="290" y="90" width="230" height="90" rx="6"/>
+  <text class="t" x="310" y="124">api/github</text><text class="s" x="310" y="146">HMAC-checked webhook</text><text class="s" x="310" y="164">Vercel Function, 202 + job</text>
+
+  <rect class="otari" x="570" y="70" width="590" height="500" rx="10"/>
+  <text class="h" x="590" y="98">OTARI GATEWAY (api.otari.ai)</text>
+
+  <rect class="card" x="595" y="120" width="250" height="84" rx="6"/>
+  <text class="t" x="613" y="150">Guardrail</text><text class="s" x="613" y="172">screens issue text first</text><text class="s" x="613" y="190">403 guardrail_violation</text>
+
+  <rect class="card" x="880" y="120" width="255" height="84" rx="6"/>
+  <text class="t" x="898" y="150">Qwen3Guard-Gen-8B</text><text class="s" x="898" y="172">via our /validate endpoint</text><text class="s" x="898" y="190">api/guard/…/validate</text>
+
+  <rect class="card" x="595" y="240" width="250" height="84" rx="6"/>
+  <text class="t" x="613" y="270">Triage</text><text class="s" x="613" y="292">Llama-3.3-70B, bot key</text><text class="s" x="613" y="310">kind:* labels + welcome</text>
+
+  <rect class="card" x="880" y="240" width="255" height="108" rx="6"/>
+  <text class="t" x="898" y="270">WRITE · coder</text><text class="s" x="898" y="292">Qwen3-Coder → Qwen3-VL</text><text class="s" x="898" y="310">routing policy + fallback</text><text class="s" x="898" y="328">GitHub MCP reads, user budget</text>
+
+  <rect class="card" x="595" y="390" width="250" height="84" rx="6"/>
+  <text class="t" x="613" y="420">RUN · /code/execute</text><text class="s" x="613" y="442">Allowance runs the script</text><text class="s" x="613" y="460">billed to the contributor</text>
+
+  <rect class="card" x="880" y="390" width="255" height="84" rx="6"/>
+  <text class="t" x="898" y="420">Budgets</text><text class="s" x="898" y="442">$0.05/day per contributor</text><text class="s" x="898" y="460">pool on the bot key</text>
+
+  <rect class="card" x="40" y="390" width="480" height="150" rx="6"/>
+  <text class="t" x="60" y="424">Verdict comment</text>
+  <text class="s" x="60" y="448">exit code + the exception ending stderr decide</text>
+  <text class="s" x="60" y="468">footer: model, provider, request id, allowance left</text>
+  <rect class="stamp" x="60" y="486" width="440" height="40" rx="4"/>
+  <text class="st" x="80" y="512">REPRODUCED · NOT REPRODUCED · INCONCLUSIVE</text>
+
+  <path class="a" d="M230 135H290"/>
+  <path class="a" d="M520 120H595"/>
+  <path class="a" d="M845 162H880"/>
+  <path class="a" d="M520 160L560 160L560 282H595"/>
+  <path class="a" d="M520 150L575 150L575 215L1007 215L1007 240"/>
+  <path class="a" d="M1007 348V369H720V390"/>
+  <path class="a" d="M595 432H540L540 460H520"/>
+  <path class="ad" d="M880 432H845"/>
+  <text class="s" x="40" y="590">Solid arrows: the request path. Dashed: spend is charged against the budget on the way.</text>
+  <text class="s" x="40" y="610">Verdict comes from the sandbox exit code; the model only wrote the script.</text>
+</svg>

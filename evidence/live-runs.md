@@ -1,6 +1,6 @@
 # Live runs
 
-Every figure here comes from a public issue comment on `edycutjong/allowance-demo` or an Otari response header.
+Figures come from a public issue comment on `edycutjong/allowance-demo`, or from a direct Otari API call or app log (dry run, probes, redelivery, response headers). The direct-call ones are not reproducible from this repository alone.
 Request ids are Otari's `otari-request-id`.
 
 ## Screenshot report (issue #6)
