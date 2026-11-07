@@ -18,7 +18,7 @@ const E: WebhookEnv = {
 type Comment = { id: number; body: string; created_at: string; user: { type: string } };
 
 // One fake for GitHub + Otari: records every call, keeps the issue's comments in memory.
-function world(opts: { comments?: Comment[]; chat?: (body: any) => Response; exec?: (body: any) => Response } = {}) {
+function world(opts: { comments?: Comment[]; chat?: (body: any) => Response; exec?: (body: any) => Response; failLabels?: boolean; failComment?: boolean } = {}) {
   const calls: { method: string; url: string; body: any }[] = [];
   const comments: Comment[] = [...(opts.comments ?? [])];
   const reactions = new Set<string>();
@@ -32,6 +32,8 @@ function world(opts: { comments?: Comment[]; chat?: (body: any) => Response; exe
     if (u.host === "api.github.com") {
       if (method === "GET" && u.pathname.endsWith("/comments")) return Response.json(comments);
       if (method === "GET" && u.pathname.endsWith("/commits/HEAD")) return Response.json({ sha: "a".repeat(40) });
+      if (opts.failLabels && u.pathname.endsWith("/labels")) return new Response("boom", { status: 500 });
+      if (opts.failComment && method === "POST" && /\/issues\/\d+\/comments$/.test(u.pathname)) return new Response("boom", { status: 502 });
       if (method === "POST" && /\/issues\/\d+\/comments$/.test(u.pathname)) {
         const c = { id: nextId++, body: body.body, created_at: new Date().toISOString(), user: { type: "Bot" } };
         comments.push(c);
@@ -162,4 +164,24 @@ test("webhook: without a guard URL no model is called (503, fail closed)", async
   const res = await handleWebhook(delivery("issue_comment", reproEvent()), { env: { ...E, guardUrl: undefined }, waitUntil: (p) => void jobs.push(p) });
   assert.equal(res.status, 503);
   assert.equal(jobs.length, 0);
+});
+
+const reproScript = '```python\nimport subprocess, sys\nsubprocess.run([sys.executable, "-m", "pip", "install", "-q", "git+https://github.com/o/r"], check=True)\nfrom pocketkit import chunk\nactual = chunk([1, 2, 3], 2)\nif actual != [[1, 2], [3]]:\n    raise AssertionError("REPRODUCED: got " + repr(actual))\nprint("NOT REPRODUCED")\n```';
+
+test("codex r04 F3: a label failure after the verdict is published does not overwrite it", async () => {
+  const w = world({
+    failLabels: true,
+    chat: () => Response.json({ choices: [{ message: { content: reproScript } }], usage: { cost_usd: 0.01 } }),
+    exec: () => Response.json({ return_code: 1, stdout: "", stderr: "AssertionError   Traceback (most recent call last)Cell In[1]\nAssertionError: REPRODUCED: got [[1, 2]]" }),
+  });
+  await onRepro(reproEvent(), w.repo, E, w.f);
+  assert.match(w.comments[0].body, /Reproduced/);
+  assert.doesNotMatch(w.comments[0].body, /Could not finish/);
+});
+
+test("deepseek r04 P1-2: claimed but the placeholder cannot be posted → 👎 on the trigger, no throw", async () => {
+  const w = world({ failComment: true });
+  await onRepro(reproEvent(), w.repo, E, w.f);
+  assert.ok(w.calls.some((c) => c.url.endsWith("/reactions") && c.body.content === "-1"));
+  assert.equal(w.calls.filter((c) => c.url.endsWith("/chat/completions")).length, 0);
 });

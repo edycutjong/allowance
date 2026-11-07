@@ -8,10 +8,20 @@ export const TRIAGE_MODEL = "meta/llama-3.3-70b-instruct";
 export type Triage = { kind: "bug" | "feature" | "question" | "other"; has_repro_steps: boolean; summary: string };
 
 export function parseTriage(text: string): Triage | null {
-  const m = /\{[\s\S]*\}/.exec(text);
-  if (!m) return null;
+  // the first {...} that parses: a note with braces after the JSON must not sink it
+  let j: any = null;
+  for (let start = text.indexOf("{"); start >= 0 && !j; start = text.indexOf("{", start + 1)) {
+    for (let end = text.indexOf("}", start); end >= 0; end = text.indexOf("}", end + 1)) {
+      try {
+        j = JSON.parse(text.slice(start, end + 1));
+        break;
+      } catch {
+        /* keep extending */
+      }
+    }
+  }
+  if (!j || typeof j !== "object") return null;
   try {
-    const j = JSON.parse(m[0]);
     const kinds = ["bug", "feature", "question", "other"];
     return {
       kind: kinds.includes(j.kind) ? j.kind : "other",

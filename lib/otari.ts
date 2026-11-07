@@ -9,8 +9,9 @@ export type OtariEnv = {
 
 export const baseUrl = (env: Pick<OtariEnv, "OTARI_BASE_URL">) => env.OTARI_BASE_URL ?? "https://api.otari.ai/api/v1";
 
-// Per-call ceilings, sized so one /repro (write, run, one repair, run) fits the function's 300 s budget;
-// lib/repro.ts skips the repair turn once REPAIR_CUTOFF_MS has passed. Observed: a write turn 5-40 s, a run 3-15 s.
+// Per-call ceilings. lib/repro.ts also holds one deadline for the whole job (JOB_BUDGET_MS) and gives each call
+// only the time left, so retries and a repair turn can never add up past the function's 300 s.
+// Observed: a write turn 5-40 s, a run 3-15 s.
 export const CHAT_TIMEOUT_MS = 90_000;
 export const EXEC_TIMEOUT_MS = 75_000;
 const READ_TIMEOUT_MS = 10_000;
@@ -76,12 +77,13 @@ export async function chat(
   body: Record<string, unknown>,
   env: Pick<OtariEnv, "OTARI_BASE_URL">,
   fetchImpl: typeof fetch = fetch,
+  timeoutMs = CHAT_TIMEOUT_MS,
 ): Promise<ChatOk | ChatErr> {
   const r = await fetchImpl(`${baseUrl(env)}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(CHAT_TIMEOUT_MS),
+    signal: AbortSignal.timeout(Math.max(1, Math.min(timeoutMs, CHAT_TIMEOUT_MS))),
   });
   const trace = readTrace(r.headers);
   const text = await r.text();
@@ -184,13 +186,15 @@ export async function executeCode(
   endUser: string | null,
   env: Pick<OtariEnv, "OTARI_BASE_URL" | "OTARI_SERVICE_KEY">,
   fetchImpl: typeof fetch = fetch,
+  deadline = Number.POSITIVE_INFINITY, // epoch ms the whole job must finish by
 ): Promise<ExecResult> {
   for (let attempt = 0; ; attempt++) {
+    const budget = Math.min(EXEC_TIMEOUT_MS, deadline - Date.now());
     const r = await fetchImpl(`${baseUrl(env)}/code/execute`, {
       method: "POST",
       headers: { Authorization: `Bearer ${env.OTARI_SERVICE_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify(endUser ? { code, language: "python", user: endUser } : { code, language: "python" }),
-      signal: AbortSignal.timeout(EXEC_TIMEOUT_MS),
+      signal: AbortSignal.timeout(Math.max(1, budget)),
     });
     const requestId = r.headers.get("otari-request-id");
     const j: any = await r.json().catch(() => ({}));
@@ -200,7 +204,7 @@ export async function executeCode(
     }
     // Retry once only when the sandbox was unreachable (502/503); a 500 or 504 may have run the code and
     // billed it already. Budget refusals are final.
-    if ((r.status === 502 || r.status === 503) && attempt === 0) continue;
+    if ((r.status === 502 || r.status === 503) && attempt === 0 && deadline - Date.now() > EXEC_TIMEOUT_MS) continue;
     const ra = r.headers.get("retry-after");
     const error: ChatErr = {
       ok: false,
@@ -232,7 +236,13 @@ export async function getPool(
     signal: AbortSignal.timeout(READ_TIMEOUT_MS),
   });
   if (!r.ok) throw new Error(`end-users ${r.status}`);
-  const list = (await r.json()) as Pick<EndUser, "spend" | "reserved">[];
+  const raw = (await r.clone().json()) as unknown[];
+  const all = Array.isArray(raw) ? raw.length : 0;
+  // A user whose reset time has passed has not been reset yet (no request since): that spend is a past window's.
+  const now = Date.now();
+  const list = ((await r.json()) as Pick<EndUser, "spend" | "reserved" | "next_budget_reset_at">[]).filter(
+    (u) => !u.next_budget_reset_at || Date.parse(u.next_budget_reset_at) > now,
+  );
   // one page of up to 1000 end users; past that the footer says "at least"
-  return { spentToday: list.reduce((n, u) => n + (u.spend ?? 0), 0), users: list.length, ceilingUsd, truncated: list.length >= 1000 };
+  return { spentToday: list.reduce((n, u) => n + (u.spend ?? 0), 0), users: list.length, ceilingUsd, truncated: all >= 1000 };
 }

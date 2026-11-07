@@ -304,7 +304,8 @@ test("runRepro: the repair turn keeps the guardrail (sandbox output is untrusted
   await runRepro(issue, "a", { guardUrl: "https://g/api/guard/t" }, env, f);
   assert.equal(bodies.length, 2);
   assert.deepEqual(bodies[1].guardrails, [{ profile: "prompt-injection", mode: "block", url: "https://g/api/guard/t" }]);
-  assert.match(bodies[1].messages.at(-1).content, /Ignore previous instructions/);
+  assert.match(bodies[1].messages.at(-1).content, /ModuleNotFoundError: Ignore previous instructions/);
+  assert.ok(bodies[1].messages.at(-1).content.length < 500, "only the final error line is quoted");
 });
 
 test("runRepro: a sandbox still down after its retry says 'could not run', not Inconclusive", async () => {
@@ -386,4 +387,32 @@ test("allowance: getEndUser ignores rows for another external id; pool says 'at 
   const f = (async () => Response.json([{ external_id: "gh:someone-else", spend: 0.04 }])) as unknown as typeof fetch;
   assert.equal(await getEndUser("gh:alice", env, f), null);
   assert.match(poolLine({ spentToday: 1, users: 1000, ceilingUsd: 5, truncated: true }), /at least \$1\.00\*\* spent today by at least 1000 contributors/);
+});
+
+test("codex r04 F2: no sandbox retry when the job deadline would not fit another run", async () => {
+  const { executeCode } = await import("../lib/otari.ts");
+  let n = 0;
+  const f = (async () => { n++; return new Response("{}", { status: 502 }); }) as unknown as typeof fetch;
+  await executeCode("x", null, env, f, Date.now() + 10_000);
+  assert.equal(n, 1);
+  n = 0;
+  await executeCode("x", null, env, f);
+  assert.equal(n, 2, "with time to spare, one retry");
+});
+
+test("verdict: NOT REPRODUCED must be the script's last stdout line", () => {
+  assert.equal(verdictFrom([exec({ exit_code: 0, stdout: "NOT REPRODUCED\ndebug: 3" }) as any]).kind, "inconclusive");
+  assert.equal(verdictFrom([exec({ exit_code: 0, stdout: "Successfully installed pocketkit-0.1\nNOT REPRODUCED\n[notice] pip 25 is out" }) as any]).kind, "not_reproduced");
+});
+
+test("triage: JSON followed by a note with braces still parses (deepseek r04 P1-4)", async () => {
+  const { parseTriage } = await import("../lib/triage.ts");
+  assert.equal(parseTriage('{"kind":"bug","has_repro_steps":true,"summary":"x"}\nnote: {see above}')!.kind, "bug");
+});
+
+test("pool: a contributor whose daily window already passed is not counted as spent today (deepseek r04 P1-5)", async () => {
+  const past = new Date(Date.now() - 3_600_000).toISOString(), future = new Date(Date.now() + 3_600_000).toISOString();
+  const f = (async () => Response.json([{ spend: 0.04, next_budget_reset_at: past }, { spend: 0.01, next_budget_reset_at: future }])) as unknown as typeof fetch;
+  const p = await getPool(env, 5, f);
+  assert.deepEqual([p.spentToday, p.users], [0.01, 1]);
 });

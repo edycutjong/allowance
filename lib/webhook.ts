@@ -98,12 +98,30 @@ export async function onRepro(p: any, repo: Repo, E: WebhookEnv, f: typeof fetch
     console.log("allowance skip /repro", p.comment.id, "claimed by another delivery");
     return;
   }
-  const placeholder = await repo.comment(issue.number, RUNNING(login, p.comment.id));
+  let placeholder: { id: number };
+  try {
+    placeholder = await repo.comment(issue.number, RUNNING(login, p.comment.id));
+  } catch (e) {
+    // claimed (👀) but nothing posted: mark the trigger failed so it is visibly not running
+    console.error("allowance placeholder failed", issue.number, p.comment.id, String(e));
+    await repo.react(p.comment.id, "-1");
+    return;
+  }
+  let result: Awaited<ReturnType<typeof runRepro>>;
   try {
     const revision = await repo.headSha().catch(() => undefined);
-    const result = await runRepro(issue, login, { guardUrl: E.guardUrl, mcpServerIds: E.mcpServerIds, maintainer, revision }, E.otari, f);
+    result = await runRepro(issue, login, { guardUrl: E.guardUrl, mcpServerIds: E.mcpServerIds, maintainer, revision }, E.otari, f);
     const [a, pool] = await Promise.all([maintainer ? Promise.resolve(MAINTAINER) : allowanceFor(login, E.otari, f), poolFor(E, f)]);
     await repo.editComment(placeholder.id, reproComment(login, result, a, pool) + "\n" + marker(p.comment.id));
+  } catch (e) {
+    // Never leave "⏳ Reproducing…" behind: the placeholder becomes an error the contributor can act on.
+    console.error("allowance /repro failed", issue.number, p.comment.id, String(e));
+    await repo.editComment(placeholder.id, failedComment(login, e) + "\n" + marker(p.comment.id)).catch(() => null);
+    await repo.react(p.comment.id, "-1");
+    return;
+  }
+  // Labels and reactions after the verdict is published: their failure must not overwrite it (codex r04 F3).
+  try {
     // a new outcome replaces the old verdict label; a refusal (budget, guard) leaves it alone
     if (result.kind !== "refused") {
       for (const l of ["repro:yes", "repro:no", "repro:inconclusive", "repro:ready", "repro:needs-steps"]) await repo.removeLabel(issue.number, l);
@@ -118,10 +136,7 @@ export async function onRepro(p: any, repo: Repo, E: WebhookEnv, f: typeof fetch
       await repo.addLabels(issue.number, ["allowance:blocked"]);
     }
   } catch (e) {
-    // Never leave "⏳ Reproducing…" behind: the placeholder becomes an error the contributor can act on.
-    console.error("allowance /repro failed", issue.number, p.comment.id, String(e));
-    await repo.editComment(placeholder.id, failedComment(login, e) + "\n" + marker(p.comment.id)).catch(() => null);
-    await repo.react(p.comment.id, "-1");
+    console.error("allowance labels failed", issue.number, p.comment.id, String(e));
   }
 }
 
