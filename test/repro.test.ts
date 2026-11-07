@@ -187,7 +187,7 @@ test("execToToolCall maps return code to status", () => {
 function fakeFetch(routes: { chat: string[]; exec: Array<{ return_code: number; stdout?: string; stderr?: string } | { status: number; code: string }> }) {
   let c = 0, e = 0;
   const calls: string[] = [];
-  const f = async (url: string, init: any) => {
+  const f = async (url: string, _init: any) => {
     calls.push(url);
     if (url.endsWith("/chat/completions")) {
       const content = routes.chat[Math.min(c++, routes.chat.length - 1)];

@@ -118,6 +118,7 @@ const execs = (calls: ToolCall[]) => calls.filter((c) => c.type === "code_execut
 // exception's traceback ends stderr with "<Type>: <message>" (probe 7e3c139f, 2026-11-07). Reading only
 // that line means a script cannot print its way to a verdict.
 export function finalException(stderr: string | undefined): { type: string; message: string } | null {
+  // eslint-disable-next-line no-control-regex -- strips ANSI colour codes from sandbox output
   const lines = (stderr ?? "").replace(/\x1b\[[0-9;]*m/g, "").split("\n").map((l) => l.trimEnd()).filter(Boolean);
   const last = lines[lines.length - 1];
   if (!last || !lines.some((l) => l.includes("Traceback (most recent call last)"))) return null;

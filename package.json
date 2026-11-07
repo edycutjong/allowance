@@ -13,15 +13,29 @@
     "e2e": "playwright test",
     "e2e:live": "BASE_URL=https://allowance.edycu.dev playwright test",
     "audit": "npm audit --audit-level=high",
-    "ci": "npm run audit && npm run typecheck && npm test"
+    "ci": "npm run lint && npm run typecheck && npm run test:coverage && npm audit --audit-level=high",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test:coverage": "node --experimental-strip-types --no-warnings --experimental-test-coverage --test-coverage-exclude='test/**' --test-coverage-lines=90 --test test/*.test.ts",
+    "lighthouse": "npx --yes @lhci/cli@0.14 autorun",
+    "release:dry": "scripts/release.sh && scripts/release.sh --notes"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.65.0",
     "@types/node": "^22.20.5",
+    "eslint": "^9.39.5",
     "fast-check": "^4.10.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.1"
   },
   "dependencies": {
     "@vercel/functions": "^3.11.0"
-  }
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.1"
+    }
+  },
+  "license": "MIT"
 }
