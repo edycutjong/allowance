@@ -23,7 +23,7 @@ function env() {
     appId: e.GITHUB_APP_ID ?? "",
     pem: (e.GITHUB_PRIVATE_KEY ?? "").replace(/\\n/g, "\n"),
     secret: e.GITHUB_WEBHOOK_SECRET ?? "",
-    guardUrl: e.GUARD_TOKEN ? `${e.PUBLIC_BASE_URL ?? "https://allowance.edycu.dev"}/api/guard/${e.GUARD_TOKEN}/validate` : undefined,
+    guardUrl: e.GUARD_TOKEN ? `${e.PUBLIC_BASE_URL ?? "https://allowance.edycu.dev"}/api/guard/${e.GUARD_TOKEN}` : undefined,
     mcpServerIds: e.OTARI_MCP_GITHUB_ID ? [e.OTARI_MCP_GITHUB_ID] : [],
   };
 }

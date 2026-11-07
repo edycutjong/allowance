@@ -1,6 +1,6 @@
 // Dry run of the /repro pipeline against live Otari, without writing to GitHub.
 //   node --experimental-strip-types scripts/repro.ts <issue-url> --as <github-login> [--no-guard]
-// Reads OTARI_API_KEY, OTARI_SERVICE_KEY, OTARI_BASE_URL, GUARD_URL, OTARI_MCP_GITHUB_ID, GITHUB_TOKEN from env.
+// GUARD_URL = https://<host>/api/guard/<token> (Otari appends /validate). Reads OTARI_API_KEY, OTARI_SERVICE_KEY, OTARI_BASE_URL, GUARD_URL, OTARI_MCP_GITHUB_ID, GITHUB_TOKEN from env.
 import { reproComment } from "../lib/comment.ts";
 import { fetchIssue, issueFromApi, parseIssueUrl } from "../lib/github-issue.ts";
 import { allowanceOf, getEndUser, getEndUserBudgets, type OtariEnv } from "../lib/otari.ts";

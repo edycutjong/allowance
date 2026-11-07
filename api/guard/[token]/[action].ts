@@ -16,13 +16,20 @@ export async function GET(req: Request): Promise<Response> {
 }
 
 export async function POST(req: Request): Promise<Response> {
-  if (!authorized(req)) return new Response("not found", { status: 404 });
+  const ua = req.headers.get("user-agent") ?? "?";
+  if (!authorized(req)) {
+    console.log("guard 404", new URL(req.url).pathname.split("/").slice(-1)[0], ua);
+    return new Response("not found", { status: 404 });
+  }
+  const raw = await req.text();
   let body: { profile?: string; input_text?: string };
   try {
-    body = await req.json();
+    body = JSON.parse(raw);
   } catch {
+    console.log("guard bad json", ua, raw.slice(0, 200));
     return Response.json({ detail: "invalid json" }, { status: 400 });
   }
+  console.log("guard request", ua, "keys=" + Object.keys(body).join(","), "len=" + (body.input_text ?? "").length);
   const profile = body.profile ?? "prompt-injection";
   const input = body.input_text ?? "";
   if (!input.trim()) return Response.json({ profile, result: { valid: true, explanation: "empty input", score: 0 } });
