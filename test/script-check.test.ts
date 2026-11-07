@@ -107,3 +107,10 @@ test("assertionKey ignores whitespace only", () => {
   const k = (s: string) => { const r = checkScript(s, REPO, ISSUE); return "facts" in r ? assertionKey(r.facts) : ""; };
   assert.equal(k(GOOD), k(GOOD.replace("if actual != 5400:", "if  actual  !=  5400 :")));
 });
+
+test("gate: a loosely named function still counts (issue #7 says business_days(), the code is business_days_between)", () => {
+  const s = GOOD.replace(/parse_duration/g, "business_days_between");
+  assert.equal(problem(s, "business_days() is off by one over a weekend"), null);
+  assert.match(problem(s, "format_duration() is off")!, /never calls a project function that the issue names/);
+  assert.match(problem(GOOD.replace(/parse_duration/g, "chunked"), "chunk() loses the tail")!, /never calls/);
+});

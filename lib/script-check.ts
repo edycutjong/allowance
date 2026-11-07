@@ -61,7 +61,11 @@ export function checkScript(script: string, repo: string, issueText: string): { 
   if (!names.size) return { problem: "the script imports nothing from the project" };
 
   // 3. a call to an imported name that the issue mentions (for `import pkg`, a call to pkg.<name>)
-  const mentioned = (s: string) => new RegExp(`\\b${escape(s)}\\b`).test(issueText);
+  // Reporters name functions loosely ("business_days()" for business_days_between), so a name counts as
+  // mentioned when an identifier in the issue equals it or extends/shortens it at an underscore boundary.
+  const tokens = new Set(issueText.match(/[A-Za-z_]\w*/g) ?? []);
+  const mentioned = (s: string) =>
+    tokens.has(s) || [...tokens].some((t) => (t.length >= 4 && s.startsWith(t + "_")) || (s.length >= 4 && t.startsWith(s + "_")));
   const calls: { symbol: string; re: RegExp }[] = [];
   for (const [local, original] of names) {
     if (new RegExp(`\\b${escape(local)}\\s*\\(`).test(body) && (mentioned(original) || mentioned(local))) {
