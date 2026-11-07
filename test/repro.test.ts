@@ -43,7 +43,7 @@ test("verdict: setup failure is inconclusive with reason", () => {
 
 test("verdict: only the LAST sandbox run counts", () => {
   const v = verdictFrom([
-    exec({ status: "failed", exit_code: 1, stderr: "REPRODUCED: early" }),
+    exec({ status: "failed", exit_code: 1, stderr: "AssertionError: REPRODUCED: early" }),
     exec({ exit_code: 0, stdout: "NOT REPRODUCED" }),
   ]);
   assert.equal(v.kind, "not_reproduced");
@@ -118,7 +118,7 @@ test("comment: per-user budget refusal names the contributor and the wait", () =
 });
 
 test("comment: verdict line credits the sandbox", () => {
-  const run = exec({ status: "failed", exit_code: 1, code: "assert 1==2", stderr: "REPRODUCED: x" });
+  const run = exec({ status: "failed", exit_code: 1, code: "assert 1==2", stderr: "AssertionError: REPRODUCED: x" });
   const c = reproComment("a", {
     kind: "ran",
     res: { ok: true, status: 200, content: "Expected: a", toolCalls: [run], costUsd: 0.0123, trace },
@@ -128,4 +128,19 @@ test("comment: verdict line credits the sandbox", () => {
   assert.match(c, /exit code `1`/);
   assert.match(c, /\$0\.04 of \$0\.05 left today/);
   assert.match(c, /this run cost \$0\.01/);
+});
+
+test("verdict: reason comes from the raised line, not the echoed f-string source", () => {
+  const stderr = [
+    '---> 12     raise AssertionError(f"REPRODUCED: expected {expected}, got {actual}")',
+    "AssertionError: REPRODUCED: expected 5400, got 3630",
+  ].join("\n");
+  const v = verdictFrom([exec({ status: "failed", exit_code: 1, stderr })]);
+  assert.equal(v.kind, "reproduced");
+  assert.equal(v.reason, "REPRODUCED: expected 5400, got 3630");
+});
+
+test("verdict: marker only in echoed source (exception was something else) is not a reproduction", () => {
+  const stderr = '---> 3 raise AssertionError("REPRODUCED: x")\nModuleNotFoundError: No module named pocketkit';
+  assert.equal(verdictFrom([exec({ status: "failed", exit_code: 1, stderr })]).kind, "inconclusive");
 });

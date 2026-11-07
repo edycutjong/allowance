@@ -15,7 +15,8 @@ export function resetLabel(iso: string | null): string {
 
 export function allowanceLine(login: string, a: Allowance | null): string {
   if (!a || a.limit == null) return `@${login}'s allowance: unavailable`;
-  return `@${login}'s allowance: **${usd(a.left ?? 0)} of ${usd(a.limit)} left today** · ${resetLabel(a.resetsAt)}`.trim();
+  const reset = resetLabel(a.resetsAt);
+  return `@${login}'s allowance: **${usd(a.left ?? 0)} of ${usd(a.limit)} left today**${reset ? " · " + reset : ""}`;
 }
 
 export function traceLine(t: Trace): string {
@@ -103,6 +104,15 @@ export function refusalComment(login: string, e: ChatErr, a: Allowance | null): 
       "Other contributors are unaffected: every contributor has an allowance of their own.",
       "",
       `<sub>${allowanceLine(login, a)} · Otari \`403 budget_exceeded\` scope \`${e.budgetScope ?? "?"}\` · request \`${e.trace.requestId ?? "?"}\`</sub>`,
+    ].join("\n");
+  }
+  if (e.status === 422 && /max_tool_iterations/.test(JSON.stringify(e.detail))) {
+    return [
+      "### ⚪ Inconclusive: the agent ran out of steps",
+      "",
+      "The model used every tool round it was allowed before reaching a sandbox verdict. Adding exact steps (input, expected, actual) to the issue usually fixes this.",
+      "",
+      `<sub>${allowanceLine(login, a)} · Otari \`422\` ${String((e.detail as string) ?? "")} · request \`${e.trace.requestId ?? "?"}\`</sub>`,
     ].join("\n");
   }
   return [
