@@ -34,6 +34,12 @@ export function traceLine(t: Trace): string {
   return parts.join(" · ");
 }
 
+const OUTCOME: Record<Verdict["kind"], string> = {
+  reproduced: "the model's test failed when Allowance ran it",
+  not_reproduced: "the model's test passed when Allowance ran it",
+  inconclusive: "the sandbox run did not decide",
+};
+
 const BADGE: Record<Verdict["kind"], string> = {
   reproduced: "🔴 **Reproduced**",
   not_reproduced: "🟢 **Not reproduced**",
@@ -78,14 +84,20 @@ export function reproComment(login: string, r: ReproResult, a: Allowance | null 
   }
   const { res, verdict, runs } = r;
   const run = verdict.run;
+  const at = r.revision ? ` at \`${r.revision.slice(0, 7)}\`` : "";
   const lines = [
-    `### ${BADGE[verdict.kind]} — decided by the sandbox, not by the model`,
+    `### ${BADGE[verdict.kind]} — ${OUTCOME[verdict.kind]}`,
     "",
     `> ${verdict.reason}`,
     "",
-    "The model only wrote the script. Allowance ran it in Otari's sandbox" + (runs.length > 1 ? ` (${runs.length} runs: the first failed to set up and the model repaired it)` : "") + ".",
+    "The model wrote this test from the issue; it cannot run code. Allowance checked that the test installs the real package" +
+      at +
+      ", calls the function the issue names and asserts on its result, then ran it in Otari's sandbox" +
+      (runs.length > 1 ? ` (${runs.length} runs: the first failed to set up and the model repaired the setup)` : "") +
+      ". Read the script below.",
     "",
   ];
+  if (r.repair) lines.push(`_Note: ${r.repair}._`, "");
   if (run) {
     lines.push(
       `Sandbox: return code \`${run.exit_code ?? "?"}\``,
@@ -170,7 +182,7 @@ export function welcomeComment(login: string, t: { kind: string; has_repro_steps
   if (t) lines.push("", `Triage: **${t.kind}**${t.kind === "bug" ? (t.has_repro_steps ? " with reproduction steps" : ", no reproduction steps yet") : ""}. ${t.summary}`);
   lines.push(
     "",
-    "Comment `/repro` and I will write a minimal script, run it in a sandbox, and report whether the bug is real. The verdict comes from the sandbox exit code, not from a model.",
+    "Comment `/repro`: a model writes a minimal test from your report, Allowance runs it in a sandbox against the real package, and the verdict is what that run did.",
     "",
     `<sub>${allowanceLine(login, a, pool)} · triage by ${traceLine(trace)}</sub>`,
   );

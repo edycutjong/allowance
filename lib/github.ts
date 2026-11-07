@@ -59,6 +59,11 @@ export class Repo {
     const q = since ? `&since=${encodeURIComponent(since)}` : "";
     return (await this.call("GET", `/issues/${issue}/comments?per_page=100${q}`)) as any;
   }
+  // The default branch's head commit: a /repro installs and names exactly this revision.
+  async headSha(): Promise<string | undefined> {
+    const j = (await this.call("GET", "/commits/HEAD")) as { sha?: unknown };
+    return typeof j?.sha === "string" && /^[0-9a-f]{40}$/.test(j.sha) ? j.sha : undefined;
+  }
   editComment(id: number, body: string) {
     return this.call("PATCH", `/issues/comments/${id}`, { body });
   }

@@ -29,6 +29,7 @@ function world(opts: { comments?: Comment[]; chat?: (body: any) => Response; exe
     const u = new URL(url);
     if (u.host === "api.github.com") {
       if (method === "GET" && u.pathname.endsWith("/comments")) return Response.json(comments);
+      if (method === "GET" && u.pathname.endsWith("/commits/HEAD")) return Response.json({ sha: "a".repeat(40) });
       if (method === "POST" && /\/issues\/\d+\/comments$/.test(u.pathname)) {
         const c = { id: nextId++, body: body.body, created_at: new Date().toISOString(), user: { type: "Bot" } };
         comments.push(c);
@@ -126,4 +127,17 @@ test("/repro: comments are listed with since=, so a long thread cannot hide the 
   await onRepro(reproEvent(), w.repo, E, w.f);
   const list = w.calls.find((c) => c.method === "GET" && c.url.includes("/issues/7/comments"));
   assert.match(list!.url, /since=2026-/);
+});
+
+test("/repro: the run installs the default branch's head commit, and the verdict names it", async () => {
+  const script = '```python\nimport subprocess, sys\nsubprocess.run([sys.executable, "-m", "pip", "install", "-q", "git+https://github.com/o/r"], check=True)\nfrom pocketkit import chunk\nactual = chunk([1, 2, 3], 2)\nif actual != [[1, 2], [3]]:\n    raise AssertionError("REPRODUCED: got " + repr(actual))\nprint("NOT REPRODUCED")\n```';
+  const w = world({
+    chat: () => Response.json({ choices: [{ message: { content: script } }], usage: { cost_usd: 0.01 } }),
+    exec: () => Response.json({ return_code: 1, stdout: "", stderr: "AssertionError     Traceback (most recent call last)Cell In[1]\nAssertionError: REPRODUCED: got [[1, 2]]" }),
+  });
+  await onRepro(reproEvent(), w.repo, { ...E, guardUrl: "https://g/api/guard/t" }, w.f);
+  const ran = w.calls.find((c) => c.url.endsWith("/code/execute"));
+  assert.match(ran!.body.code, new RegExp("o/r@" + "a".repeat(40)));
+  assert.match(w.comments[0].body, /Reproduced/);
+  assert.match(w.comments[0].body, /at `aaaaaaa`/);
 });

@@ -93,7 +93,8 @@ export async function onRepro(p: any, repo: Repo, E: WebhookEnv, f: typeof fetch
   await repo.react(p.comment.id, "eyes");
   const placeholder = await repo.comment(issue.number, RUNNING(login, p.comment.id));
   try {
-    const result = await runRepro(issue, login, { guardUrl: E.guardUrl, mcpServerIds: E.mcpServerIds, maintainer }, E.otari, f);
+    const revision = await repo.headSha().catch(() => undefined);
+    const result = await runRepro(issue, login, { guardUrl: E.guardUrl, mcpServerIds: E.mcpServerIds, maintainer, revision }, E.otari, f);
     const [a, pool] = await Promise.all([maintainer ? Promise.resolve(MAINTAINER) : allowanceFor(login, E.otari, f), poolFor(E, f)]);
     await repo.editComment(placeholder.id, reproComment(login, result, a, pool) + "\n" + marker(p.comment.id));
     if (result.kind === "ran") {
