@@ -1,11 +1,15 @@
 // Issue loading + light parsing shared by the webhook and the local CLI.
 import type { Issue } from "./repro.ts";
 
+// Only images GitHub itself hosts (issue attachments, repo files) are passed to the model: the provider
+// fetches image URLs, and an issue author should not choose what it fetches.
+const IMAGE_HOSTS = /^https:\/\/(github\.com\/user-attachments\/|(private-)?user-images\.githubusercontent\.com\/|raw\.githubusercontent\.com\/)/;
+
 export function imageUrlsIn(body: string): string[] {
   const urls = new Set<string>();
   for (const m of body.matchAll(/!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/g)) urls.add(m[1]);
   for (const m of body.matchAll(/<img[^>]+src="(https?:\/\/[^"]+)"/g)) urls.add(m[1]);
-  return [...urls];
+  return [...urls].filter((u) => IMAGE_HOSTS.test(u));
 }
 
 export function parseIssueUrl(url: string): { repo: string; number: number } {

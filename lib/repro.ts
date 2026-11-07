@@ -56,8 +56,16 @@ export function systemPrompt(issue: Issue): string {
   ].join("\n");
 }
 
+// What a model reads of an issue body. Bounded so a contributor's allowance is not spent on a pasted log,
+// and well inside what the guard screens (lib/guard.ts MAX_WINDOWS x 12,000 characters).
+export const MAX_ISSUE_CHARS = 16_000;
+export function clipBody(body: string): string {
+  if (!body) return "(no body)";
+  return body.length <= MAX_ISSUE_CHARS ? body : `${body.slice(0, MAX_ISSUE_CHARS)}\n[… ${body.length - MAX_ISSUE_CHARS} more characters not shown]`;
+}
+
 export function userMessage(issue: Issue): unknown {
-  const text = `Issue #${issue.number}: ${issue.title}\nURL: ${issue.url}\nAuthor: @${issue.author}\n\n${issue.body || "(no body)"}`;
+  const text = `Issue #${issue.number}: ${issue.title.slice(0, 300)}\nURL: ${issue.url}\nAuthor: @${issue.author}\n\n${clipBody(issue.body)}`;
   if (!issue.imageUrls.length) return { role: "user", content: text };
   // Screenshots go to the model as images; the text-only coder refuses them and the
   // routing policy falls back to Qwen3-VL on another provider.
@@ -183,13 +191,18 @@ export async function runRepro(
       return { kind: "no_script", res, reason: problem!, modelCostUsd: modelCost };
     }
     const exec = await executeCode(script, endUser, execEnv, fetchImpl);
-    if (exec.error && exec.httpStatus < 500) return { kind: "refused", res: exec.error };
+    // A refusal (budget, auth) is final. A sandbox that is down after its retry is not a verdict either:
+    // say "could not run" instead of dressing it up as Inconclusive, unless an earlier run already decided.
+    if (exec.error && (exec.httpStatus < 500 || !runs.length)) return { kind: "refused", res: exec.error };
+    if (exec.error) break;
     runs.push(execToToolCall(script, exec));
     const verdict = verdictFrom(runs);
     const out = `${exec.stdout}\n${exec.stderr}`;
     if (verdict.kind !== "inconclusive" || attempt === 1 || !SETUP_HINT.test(out)) break;
     if (Date.now() - started > (cfg.repairCutoffMs ?? REPAIR_CUTOFF_MS)) break;
-    // One repair turn: show the model the sandbox error, never the verdict logic.
+    // One repair turn: show the model the sandbox error, never the verdict logic. The request keeps its
+    // guardrail: the sandbox output is untrusted text (the package under test prints it), so it is
+    // screened like the issue was before the coder reads it.
     const repair: Record<string, unknown> = {
       ...body,
       messages: [
@@ -198,7 +211,6 @@ export async function runRepro(
         { role: "user", content: "The script failed to set up in the sandbox. Fix only the setup (imports, install, call signature); keep the same assertion.\n```\n" + out.slice(-1500) + "\n```" },
       ],
     };
-    delete repair.guardrails; // already screened
     const next = await chat(key, repair, env, fetchImpl);
     if (!next.ok) break;
     res = next;

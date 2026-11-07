@@ -124,8 +124,9 @@ export function refusalComment(login: string, e: ChatErr, a: Allowance | null | 
     return [
       "### 🛡️ Blocked by the guardrail",
       "",
-      `The issue text was screened before any model saw it and was flagged${g?.explanation ? ` (${g.explanation}, score ${g.score})` : ""}.`,
-      "No model was called and nothing was charged. A maintainer can review the issue and run `/repro` themselves.",
+      `The issue text was screened by the guard model before the triage or coder model saw it, and was flagged${g?.explanation ? ` (${g.explanation}, score ${g.score})` : ""}.`,
+      `Neither model was called. The guard check is paid by the repository; nothing was charged to @${login}.`,
+      "Every `/repro` is screened the same way, a maintainer's too: edit the issue text, then comment `/repro` again.",
       "",
       `<sub>${allowanceLine(login, a, pool)} · Otari \`403 guardrail_violation\` · request \`${e.trace.requestId ?? "?"}\`</sub>`,
     ].join("\n");

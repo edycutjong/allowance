@@ -38,10 +38,37 @@ export function decide(profile: string, g: ParsedGuard): Verdict {
   return { valid: !flagged, explanation: label, score };
 }
 
-export async function classify(
-  inputText: string,
+// The guard reads the WHOLE input: text past one window used to be cut off unscreened, so an
+// instruction placed after 12,000 characters of padding reached the coder. Windows overlap so a
+// payload split across a boundary is still read whole; past MAX_WINDOWS the input is refused.
+export const MAX_WINDOWS = 4;
+const OVERLAP_CHARS = 1_000;
+
+export function windows(text: string, size = MAX_INPUT_CHARS, overlap = OVERLAP_CHARS): string[] {
+  if (text.length <= size) return [text];
+  const out: string[] = [];
+  for (let i = 0; i < text.length; i += size - overlap) {
+    out.push(text.slice(i, i + size));
+    if (i + size >= text.length) break;
+  }
+  return out;
+}
+
+const RANK = { Safe: 0, Controversial: 1, Unsafe: 2 } as const;
+
+// The least safe window decides; categories are the union.
+export function worst(parts: ParsedGuard[]): ParsedGuard {
+  if (parts.some((g) => !g.safety)) return { safety: null, categories: [] };
+  const safety = parts.reduce<ParsedGuard["safety"]>((a, g) => (RANK[g.safety!] > RANK[a!] ? g.safety : a), "Safe");
+  return { safety, categories: [...new Set(parts.flatMap((g) => g.categories))] };
+}
+
+const GUARD_TIMEOUT_MS = 20_000;
+
+async function classifyOne(
+  text: string,
   env: { OTARI_API_KEY: string; OTARI_BASE_URL?: string },
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch,
 ): Promise<{ parsed: ParsedGuard; requestId: string | null }> {
   const base = env.OTARI_BASE_URL ?? "https://api.otari.ai/api/v1";
   const r = await fetchImpl(`${base}/chat/completions`, {
@@ -51,11 +78,25 @@ export async function classify(
       model: GUARD_MODEL,
       max_tokens: 40,
       temperature: 0,
-      messages: [{ role: "user", content: inputText.slice(0, MAX_INPUT_CHARS) }],
+      messages: [{ role: "user", content: text }],
       metadata: { component: "allowance-guard" },
     }),
+    signal: AbortSignal.timeout(GUARD_TIMEOUT_MS),
   });
   if (!r.ok) throw new Error(`otari ${r.status}: ${(await r.text()).slice(0, 200)}`);
   const d = (await r.json()) as { choices?: { message?: { content?: string } }[] };
   return { parsed: parseGuardOutput(d.choices?.[0]?.message?.content ?? ""), requestId: r.headers.get("otari-request-id") };
+}
+
+export async function classify(
+  inputText: string,
+  env: { OTARI_API_KEY: string; OTARI_BASE_URL?: string },
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ parsed: ParsedGuard; requestId: string | null; windows: number }> {
+  const parts = windows(inputText);
+  if (parts.length > MAX_WINDOWS) {
+    return { parsed: { safety: "Unsafe", categories: ["too long to screen"] }, requestId: null, windows: parts.length };
+  }
+  const results = await Promise.all(parts.map((t) => classifyOne(t, env, fetchImpl)));
+  return { parsed: worst(results.map((r) => r.parsed)), requestId: results[0].requestId, windows: parts.length };
 }

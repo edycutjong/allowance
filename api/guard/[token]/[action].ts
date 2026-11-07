@@ -1,7 +1,7 @@
 // https://<deploy>/api/guard/<GUARD_TOKEN>/validate  — Otari guardrails contract
 // https://<deploy>/api/guard/<GUARD_TOKEN>/profiles  — optional profile listing
 // The token lives in the path because a request-body guardrail entry carries only a URL.
-import { classify, decide, GUARD_MODEL, PROFILES } from "../../../lib/guard.js";
+import { classify, decide, GUARD_MODEL, MAX_WINDOWS, PROFILES, windows } from "../../../lib/guard.js";
 
 function authorized(req: Request): boolean {
   const parts = new URL(req.url).pathname.split("/");
@@ -33,6 +33,10 @@ export async function POST(req: Request): Promise<Response> {
   const profile = body.profile ?? "prompt-injection";
   const input = body.input_text ?? "";
   if (!input.trim()) return Response.json({ profile, result: { valid: true, explanation: "empty input", score: 0 } });
+  // Every character the model will read is screened, or the request is refused (never truncated).
+  if (windows(input).length > MAX_WINDOWS) {
+    return Response.json({ profile, result: { valid: false, explanation: `input too long to screen (${input.length} characters)`, score: 1 } });
+  }
   try {
     const { parsed, requestId } = await classify(input, {
       OTARI_API_KEY: process.env.OTARI_API_KEY ?? "",
