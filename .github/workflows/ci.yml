@@ -4,11 +4,17 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
+  # Stage 1 — quality: typecheck + 100 unit/property tests
   test:
+    name: "Stage 1 · Typecheck + tests"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,8 +26,30 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+  # Stage 2 — E2E: landing, deck and /judge in a real browser, desktop + mobile
+  e2e:
+    name: "Stage 2 · E2E (Playwright)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  # Stage 3 — deploy the otari branch, then smoke-test production
   deploy:
-    needs: test
+    name: "Stage 3 · Deploy + live smoke"
+    needs: [test, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/otari'
     runs-on: ubuntu-latest
     env:
@@ -32,6 +60,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
       - run: npm ci
       - name: Deploy to Vercel (production)
         run: npx --yes vercel@53.2.0 deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
@@ -42,3 +71,7 @@ jobs:
             sleep 5
           done
           exit 1
+      - name: Live E2E against production
+        run: |
+          npx playwright install --with-deps chromium
+          BASE_URL=https://allowance.edycu.dev npx playwright test --project=desktop
