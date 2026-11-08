@@ -84,3 +84,8 @@ call's result (`lib/script-check.ts`); the verdict reads only the exception that
   sandbox return code 1; model $0.0056 + sandbox ×1; tools: mcp ×5; request `003f81d0-b32c-44cb-88c9-ce598b33bccd`; 👀 then 🚀 on the trigger,
   label `repro:yes`. https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6719262799 (trigger) — the script is the template shape
   every gated run has used, so the stricter gate accepted it unchanged.
+- Issue #6, `/repro` by the maintainer on 2026-11-08, first run with the provenance check (a2a r08, live at f7ec9b5 / v0.3.2): the
+  lines "added by Allowance, not the model" confirmed in Otari's sandbox that `chunk` comes from github.com/edycutjong/allowance-demo at
+  `a36978f` (PEP 610 direct_url.json), then the model's test raised the marker at line 19: **Reproduced**, return code 1;
+  model $0.0042 + sandbox ×1; tools: mcp ×4; request `4a41f30d-134f-41eb-b979-354ec0e1483d`.
+  https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6719390317 (trigger)
