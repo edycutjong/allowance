@@ -175,7 +175,7 @@ test("scriptProblem: the real scripts from issues #1-#4 pass the gate", () => {
   const ok = (script: string, title: string) => scriptProblem(script, { repo: "edycutjong/allowance-demo", title, body: "" });
   assert.equal(ok(live("edycutjong/allowance-demo", "from pocketkit import parse_duration", "parse_duration('1h30m')", "actual != 5400"), "parse_duration('1h30m') returns 3630 instead of 5400"), null);
   assert.equal(ok(live("edycutjong/allowance-demo", "from datetime import date\nfrom pocketkit import business_days_between", "business_days_between(date(2026, 11, 2), date(2026, 11, 6))", "actual != 5"), "business_days_between counts one day too few"), null);
-  assert.equal(ok(live("edycutjong/allowance-demo", "from pocketkit.lists import chunk", "list(chunk([1, 2, 3, 4, 5], 2))", "actual != expected"), "chunk() loses the trailing items (screenshot)"), null);
+  assert.equal(ok(live("edycutjong/allowance-demo", "from pocketkit.lists import chunk", "list(chunk([1, 2, 3, 4, 5], 2))\nexpected = [[1, 2], [3, 4], [5]]", "actual != expected"), "chunk() loses the trailing items (screenshot)"), null);
   assert.equal(ok(live("edycutjong/allowance-demo", "import pocketkit", "pocketkit.dedupe([3, 1, 3, 2, 1])", "actual != [3, 1, 2]"), "dedupe() scrambles the order of items"), null);
 });
 
@@ -419,7 +419,7 @@ test("pool: a contributor whose daily window already passed is not counted as sp
 
 test("scriptProblem reports a rejected script instead of accepting model prose", async () => {
   const { scriptProblem } = await import("../lib/repro.ts");
-  assert.match(scriptProblem("print('done')", issue)!, /does not pip-install/);
+  assert.match(scriptProblem("print('done')", issue)!, /must pip-install .* exactly once/);
 });
 
 test("repro skips the sandbox when writing the script consumes the job deadline", async (t) => {
