@@ -44,3 +44,13 @@ test("landing, deck and judge footers show a semantic version", async ({ page, r
     }
   }
 });
+
+test("landing links judges to /judge from the header and the footer", async ({ page }) => {
+  await page.goto("/");
+  const header = page.locator('header.top a[href="/judge"]');
+  await expect(header).toBeVisible();          // the one header CTA left on phones
+  await expect(page.locator('footer a[href="/judge"]')).toHaveCount(1);
+  await header.click();
+  await expect(page).toHaveURL(/\/judge\/?$/);
+  await expect(page).toHaveTitle(/for judges/);
+});

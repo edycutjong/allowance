@@ -79,6 +79,7 @@ nav.links a:hover{color:var(--ink)}
 .btn.solid{background:var(--ink);color:var(--bg)}
 .btn.solid:hover{background:#000;color:#fff}
 .btn.small{padding:9px 14px;font-size:14.5px}
+.hd-ctas{display:flex;gap:10px;flex-shrink:0}
 .btn svg{width:16px;height:16px}
 
 /* hero */
@@ -315,6 +316,9 @@ footer nav{display:flex;flex-wrap:wrap;gap:20px}
   .pair,.pb-grid,.otari,.faq{grid-template-columns:minmax(0,1fr)}
   section.s,.honest{padding:72px 0}
 }
+@media (max-width:440px){
+  .hd-deck{display:none}
+}
 @media (max-width:600px){
   body{font-size:17px}
   .wrap{width:calc(100% - 36px)}
@@ -372,7 +376,10 @@ footer nav{display:flex;flex-wrap:wrap;gap:20px}
       <a href="#honest">Limits</a>
       <a href="#faq">FAQ</a>
     </nav>
-    <a class="btn small" href="/deck">Pitch deck</a>
+    <div class="hd-ctas">
+      <a class="btn small hd-deck" href="/deck">Pitch deck</a>
+      <a class="btn small solid" href="/judge">For judges</a>
+    </div>
   </div>
 </header>
 
@@ -616,6 +623,7 @@ print("NOT REPRODUCED")</pre>
     <span>Allowance · MIT · built for Mozilla's Otari "Devs Wilding Online" on DoraHacks · <span data-version>v0.1.2</span></span>
     <nav aria-label="Footer">
       <a href="https://github.com/edycutjong/allowance/tree/otari">Source</a>
+      <a href="/judge">For judges</a>
       <a href="/deck">Deck</a>
       <a href="https://github.com/edycutjong/allowance-demo/issues">Demo repo</a>
       <a href="https://dorahacks.io/hackathon/mozilla-devs-wilding/detail">Hackathon</a>
