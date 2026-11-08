@@ -18,7 +18,7 @@ The full feature-by-feature proof table, with Otari request ids, is in [README.m
 ## Receipts
 
 - Open-weight models only, all through the hosted Otari gateway.
-- 100 tests in CI, including a property test: across 25,000 generated sandbox runs, a **Reproduced** verdict only ever came from a failed run with the marker's AssertionError in stderr (`test/verdict-property.test.ts`).
+- 147 tests in CI at 100% line, branch and function coverage, including a property test: across 25,000 generated sandbox runs, a **Reproduced** verdict only ever came from a failed run with the marker's AssertionError in stderr (`test/verdict-property.test.ts`).
 - Every verdict comment prints its Otari request id, the model cost and the sandbox run count.
 
 ## Reproduce

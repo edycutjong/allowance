@@ -144,7 +144,7 @@ Dry run without writing to GitHub: `node --experimental-strip-types scripts/repr
 ## 🧪 Testing & CI
 
 ```bash
-npm test               # 100 tests, node:test (unit, regression, property)
+npm test               # 147 tests, node:test (unit, regression, property)
 npm run test:property  # the verdict property test alone: 25,000 generated sandbox runs
 npm run typecheck      # tsc --noEmit
 npm run e2e            # Playwright: landing, deck and /judge, desktop + mobile
@@ -167,7 +167,7 @@ npm run ci             # lint + typecheck + coverage gate + audit, as CI stage 1
 
 | Stage | What runs |
 |---|---|
-| 1 · Quality | ESLint + typescript-eslint, `tsc --noEmit`, 100 tests with a **line-coverage gate ≥ 90%** (currently 95.9%), Node 22 and 24 |
+| 1 · Quality | ESLint + typescript-eslint, `tsc --noEmit`, 147 tests with a **coverage gate of 100% lines, branches and functions** on `lib/` and `api/`, Node 22 and 24 |
 | 2 · Security | gitleaks over the full history, a check that no private planning files are tracked, `npm audit` (0 vulnerabilities), license check (no GPL/AGPL in production deps) |
 | 3 · Build | `vercel build --prod`: the exact production output, functions and static pages |
 | 4 · E2E | Playwright, 3 suites, desktop + mobile |

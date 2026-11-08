@@ -38,7 +38,7 @@ jobs:
         run: npm run lint
       - name: Typecheck (tsc --noEmit)
         run: npm run typecheck
-      - name: Tests + coverage gate (lines ≥ 90%)
+      - name: Tests + coverage gate (100% lines, branches, functions)
         run: npm run test:coverage
 
   security:
