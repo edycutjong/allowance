@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Allowance — parse_duration('1h30m'): the issue expects 5400 in graphite, the sandbox returns 3630, return code 1, stamped REPRODUCED in red.">
+<!-- STORYBOARD (dur 6s — must equal this file's single master dur)
+  0-10%   steady state: the allowance ticket (ink outline, perforation, graphite stub lines), face empty — poster-safe
+  10-30%  trigger:      two graphite claim lines write across the ticket face (the issue's claim)        data-story="beat-2"
+  30-55%  mechanism:    parse_duration('1h30m'): the issue expects 5400 in graphite, the sandbox returns 3630, return code 1, stamped REPRODUCED in red.        data-story="beat-3"
+                        (the red stamp falls onto the claim lines and lands at -8°, ≠ inside: expected ≠ measured)
+  55-85%  resolution:   the stamp stays; one soft red ink bleed breathes under it                       data-story="beat-4"
+  85-100% breathe + seam fade: story layer fades 92-97.5% so the loop restarts on an empty face
+-->
+  <title>Allowance</title>
+  <style>
+    [data-story]{transform-box:fill-box;transform-origin:center}
+    .slam{animation:slam 6s infinite}
+    @keyframes slam{
+      0%,30%{opacity:0;transform:scale(1.6) rotate(-9deg);animation-timing-function:cubic-bezier(.55,0,.9,.45)}
+      35%{opacity:1;transform:scale(.94) rotate(.6deg);animation-timing-function:cubic-bezier(.2,.8,.3,1)}
+      38%{opacity:1;transform:scale(1.02) rotate(-.2deg)}
+      40%,92%{opacity:1;transform:scale(1) rotate(0deg)}
+      97.5%,100%{opacity:0;transform:scale(1) rotate(0deg)}
+    }
+    @media (prefers-reduced-motion: reduce){*{animation:none !important}.slam{opacity:1}}
+  </style>
+  <defs><linearGradient id="paperA" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#FFFDF8"/><stop offset="1" stop-color="#F2EDE1"/></linearGradient>
+    <filter id="bleed" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="14"/></filter>
+  </defs>
+  <g transform="translate(41 41) scale(.84)">
+  <path d="M58 120H454A26 26 0 0 1 480 146V220A36 36 0 0 0 480 292V366A26 26 0 0 1 454 392H58A26 26 0 0 1 32 366V292A36 36 0 0 0 32 220V146A26 26 0 0 1 58 120Z" fill="none" stroke="#FAF8F3" stroke-width="38" stroke-linejoin="round"/>
+  <path d="M58 120H454A26 26 0 0 1 480 146V220A36 36 0 0 0 480 292V366A26 26 0 0 1 454 392H58A26 26 0 0 1 32 366V292A36 36 0 0 0 32 220V146A26 26 0 0 1 58 120Z" fill="url(#paperA)" stroke="var(--ink, #1B1A17)" stroke-width="26" stroke-linejoin="round"/>
+  <path d="M168 150V362" stroke="var(--ink, #1B1A17)" stroke-width="7" stroke-dasharray="11 13" stroke-linecap="round" opacity=".5"/>
+  <path d="M100 226H142M100 256H132M100 286H142" stroke="var(--primary, #8C7A4F)" stroke-width="12" stroke-linecap="round"/>
+  <path d="M202 214H392" stroke="var(--primary, #8C7A4F)" stroke-width="12" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" data-story="beat-2">
+    <animate attributeName="stroke-dashoffset" dur="6s" repeatCount="indefinite" keyTimes="0;0.10;0.18;0.92;0.975;1" values="100;100;0;0;0;100"/>
+    <animate attributeName="opacity" dur="6s" repeatCount="indefinite" keyTimes="0;0.92;0.975;1" values="1;1;0;0"/>
+  </path>
+  <path d="M202 298H340" stroke="var(--primary, #8C7A4F)" stroke-width="12" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100" data-story="beat-2">
+    <animate attributeName="stroke-dashoffset" dur="6s" repeatCount="indefinite" keyTimes="0;0.16;0.24;0.92;0.975;1" values="100;100;0;0;0;100"/>
+    <animate attributeName="opacity" dur="6s" repeatCount="indefinite" keyTimes="0;0.92;0.975;1" values="1;1;0;0"/>
+  </path>
+  <g transform="rotate(-8 306 256)">
+    <rect x="200" y="184" width="212" height="144" rx="14" fill="var(--accent, #B3261E)" filter="url(#bleed)" opacity="0" data-story="beat-4">
+      <animate attributeName="opacity" dur="6s" repeatCount="indefinite" keyTimes="0;0.36;0.46;0.62;1" values="0;0;0.2;0;0"/>
+    </rect>
+    <g class="slam" opacity="0" data-story="beat-3" fill="none" stroke="var(--accent, #B3261E)">
+    <rect x="200" y="184" width="212" height="144" rx="14" fill="#FAF8F3" stroke="none"/>
+    <rect x="200" y="184" width="212" height="144" rx="14" stroke-width="24"/>
+    <rect x="222" y="206" width="168" height="100" rx="6" stroke-width="6"/>
+    <path d="M266 238H346M266 274H346" stroke-width="20" stroke-linecap="round"/>
+    <path d="M327 212L285 300" stroke-width="20" stroke-linecap="round"/>
+    </g>
+  </g>
+  </g>
+</svg>

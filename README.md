@@ -1,8 +1,8 @@
 <div align="center">
-  <img src="docs/icon.svg" alt="Allowance icon" width="144">
+  <img src="docs/icon-animated.svg" alt="Allowance icon" width="144">
   <h1>Allowance 🧾</h1>
   <p><em>Maintainers can't hand an AI key to strangers, and a model saying "confirmed" is not evidence. Allowance gives every outside contributor a capped Otari allowance; on <code>/repro</code> an open-weight model writes a test, Otari's sandbox runs it, and the verdict is what the run did, not what the model believes.</em></p>
-  <img src="docs/readme-hero.png" alt="Allowance: the model writes, the sandbox decides" width="100%">
+  <img src="docs/readme-hero-animated.svg" alt="Allowance: the model writes, the sandbox decides" width="100%">
 
   <br/>
 
