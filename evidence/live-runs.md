@@ -79,3 +79,8 @@ call's result (`lib/script-check.ts`); the verdict reads only the exception that
   The model's script in that comment (after the pip install line; shown in the README b-roll, `docs/broll.gif`):
   `from pocketkit.lists import chunk` · `actual = list(chunk([1, 2, 3, 4, 5], 2))` ·
   `expected = [[1, 2], [3, 4], [5]]` · `if actual != expected: raise AssertionError("REPRODUCED: expected " + …)`
+- Issue #6, `/repro` by the maintainer on 2026-11-08 (first run through the allowlist gate, a2a r07, live at a28b8e1):
+  **Reproduced**, installed at `a36978f` (the demo repo's head), `REPRODUCED: expected [[1, 2], [3, 4], [5]], got [[1, 2], [3, 4]]`,
+  sandbox return code 1; model $0.0056 + sandbox ×1; tools: mcp ×5; request `003f81d0-b32c-44cb-88c9-ce598b33bccd`; 👀 then 🚀 on the trigger,
+  label `repro:yes`. https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6719262799 (trigger) — the script is the template shape
+  every gated run has used, so the stricter gate accepted it unchanged.
