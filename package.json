@@ -16,7 +16,7 @@
     "ci": "npm run lint && npm run typecheck && npm run test:coverage && npm audit --audit-level=high",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test:coverage": "node --experimental-strip-types --no-warnings --experimental-test-coverage --test-coverage-exclude='test/**' --test-coverage-lines=90 --test test/*.test.ts",
+    "test:coverage": "node --experimental-strip-types --no-warnings --experimental-test-coverage --test-coverage-exclude='test/**' --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 --test test/*.test.ts",
     "lighthouse": "npx --yes @lhci/cli@0.14 autorun",
     "release:dry": "scripts/release.sh && scripts/release.sh --notes"
   },
