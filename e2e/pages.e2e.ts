@@ -30,3 +30,17 @@ test("landing has social card metadata", async ({ page }) => {
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", /\/media\/og\.png/);
   await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/favicon.svg");
 });
+
+test("landing, deck and judge footers show a semantic version", async ({ page, request }) => {
+  const health = process.env.BASE_URL ? await (await request.get("/api/health")).json() : null;
+  for (const path of ["/", "/deck/", "/judge/"]) {
+    await page.goto(path);
+    const versions = await page.locator("[data-version]").allTextContents();
+    expect(versions.length).toBeGreaterThan(0);
+    for (const v of versions) {
+      expect(v).toMatch(/^v\d+\.\d+\.\d+$/);
+      // in production the stamped footer must equal the deployed version
+      if (health) expect(v).toBe(`v${health.version}`);
+    }
+  }
+});

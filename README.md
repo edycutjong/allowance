@@ -19,6 +19,7 @@
   ![Otari](https://img.shields.io/badge/Otari-gateway-8C7A4F?style=flat)
   [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
   [![CI](https://github.com/edycutjong/allowance/actions/workflows/ci.yml/badge.svg?branch=otari)](https://github.com/edycutjong/allowance/actions/workflows/ci.yml)
+  [![Release](https://img.shields.io/github/v/release/edycutjong/allowance?sort=semver&color=8C7A4F)](https://github.com/edycutjong/allowance/releases)
 
 </div>
 
