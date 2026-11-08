@@ -100,7 +100,7 @@ The footer's "repository pool" line (see [issue #7](https://github.com/edycutjon
 
 ### How a verdict is made
 
-A model-written script runs only if it passes `lib/script-check.ts`, an allowlist of exactly the template's shape: the one install of this repository (Allowance then pins it to the head commit), plain imports, one `actual = <function the issue names>(<literals>)` at module level, an optional literal `expected`, `if actual != expected:` with the marker raise (or `assert actual == expected, …`), then the final print. Every line is tokenised; arguments, expectations and the marker message are literals only, so nothing can rebind, alias, skip or swallow the call. All nine scripts the model really wrote on allowance-demo pass it ([fixtures/real-scripts](fixtures/real-scripts)); a test that needs more setup than one call is refused, and the comment says why. The verdict then reads only the run's result: Reproduced needs a failed run whose stderr ends in the marker's `AssertionError`; Not reproduced needs return code 0 and `NOT REPRODUCED` as the last line of stdout; anything else is Inconclusive. "Reproduced" means *the model's test failed when Allowance ran it*. The gate is a structural check, not proof that the model's expectation is right. Live examples: [#6](https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6708001599) reproduced at `9259e59`; [#4](https://github.com/edycutjong/allowance-demo/issues/4#issuecomment-6708317077) not reproduced at `9259e59`; [#7](https://github.com/edycutjong/allowance-demo/issues/7#issuecomment-6707750286), where a repair that changed the assertion was refused and the comment said so. Details: [evidence/live-runs.md](evidence/live-runs.md).
+A model-written script runs only if it passes `lib/script-check.ts`, an allowlist of exactly the template's shape: the one install of this repository (Allowance then pins it to the head commit), plain imports, one `actual = <function the issue names>(<literals>)` at module level, an optional literal `expected`, `if actual != expected:` with the marker raise (or `assert actual == expected, …`), then the final print. Every line is tokenised; arguments, expectations and the marker message are literals only, so nothing can rebind, alias, skip or swallow the call. A NaN expectation is refused (NaN never equals itself). Before the call, Allowance inserts its own check that the tested function's file belongs to the package pip installed from this repository at the pinned commit (PEP 610 `direct_url.json`); if not, the run ends in a `SETUP` error, which is Inconclusive. All nine scripts the model really wrote on allowance-demo pass the gate ([fixtures/real-scripts](fixtures/real-scripts)); a test that needs more setup than one call is refused, and the comment says why. The verdict then reads only the run's result: Reproduced needs a failed run whose stderr ends in the marker's `AssertionError`; Not reproduced needs return code 0 and `NOT REPRODUCED` as the last line of stdout; anything else is Inconclusive. "Reproduced" means *the model's test failed when Allowance ran it*. The gate is a structural check, not proof that the model's expectation is right. Live examples: [#6](https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6708001599) reproduced at `9259e59`; [#4](https://github.com/edycutjong/allowance-demo/issues/4#issuecomment-6708317077) not reproduced at `9259e59`; [#7](https://github.com/edycutjong/allowance-demo/issues/7#issuecomment-6707750286), where a repair that changed the assertion was refused and the comment said so. Details: [evidence/live-runs.md](evidence/live-runs.md).
 
 ## ⚠️ Limits
 
@@ -144,7 +144,7 @@ Dry run without writing to GitHub: `node --experimental-strip-types scripts/repr
 ## 🧪 Testing & CI
 
 ```bash
-npm test               # 166 tests, node:test (unit, regression, property)
+npm test               # 174 tests, node:test (unit, regression, property)
 npm run test:property  # the verdict property test alone: 25,000 generated sandbox runs
 npm run typecheck      # tsc --noEmit
 npm run e2e            # Playwright: landing, deck and /judge, desktop + mobile
@@ -167,7 +167,7 @@ npm run ci             # lint + typecheck + coverage gate + audit, as CI stage 1
 
 | Stage | What runs |
 |---|---|
-| 1 · Quality | ESLint + typescript-eslint, `tsc --noEmit`, 166 tests with a **coverage gate of 100% lines, branches and functions** on `lib/` and `api/`, Node 22 and 24 |
+| 1 · Quality | ESLint + typescript-eslint, `tsc --noEmit`, 174 tests with a **coverage gate of 100% lines, branches and functions** on `lib/` and `api/`, Node 22 and 24 |
 | 2 · Security | gitleaks over the full history, a check that no private planning files are tracked, `npm audit` (0 vulnerabilities), license check (no GPL/AGPL in production deps) |
 | 3 · Build | `vercel build --prod`: the exact production output, functions and static pages |
 | 4 · E2E | Playwright, 3 suites, desktop + mobile |
