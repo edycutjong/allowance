@@ -42,6 +42,11 @@ Allowance is a GitHub App for open-source repositories, built on [Otari](https:/
 
 ## 📸 See it in Action
 
+<div align="center">
+  <a href="https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6708001599"><img src="docs/broll.gif" alt="Animated walkthrough of issue #6: someone comments /repro, an open-weight model writes the test, Otari's sandbox runs it and returns code 1, the assay certificate is stamped REPRODUCED, and the real bot comment appears on the issue" width="100%"></a>
+  <sub>Issue #6, real data: the model's script, <code>9259e59</code>, return code 1, $0.0082. Click to open the actual bot comment.</sub>
+</div>
+
 Live proofs on the public demo repo [`edycutjong/allowance-demo`](https://github.com/edycutjong/allowance-demo). Walkthrough with every link: [DEMO.md](DEMO.md).
 
 | Verdict | Issue | What happened |

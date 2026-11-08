@@ -76,3 +76,6 @@ call's result (`lib/script-check.ts`); the verdict reads only the exception that
 - Issue #6 again with a 150 s ceiling for the write turn: **Reproduced** at `9259e59`; model $0.0082 + sandbox ×1;
   tools: mcp ×5; request `c3709369-eae7-4d55-8c88-dba391c10472`; about 127 s from comment to verdict.
   https://github.com/edycutjong/allowance-demo/issues/6#issuecomment-6708001599
+  The model's script in that comment (after the pip install line; shown in the README b-roll, `docs/broll.gif`):
+  `from pocketkit.lists import chunk` · `actual = list(chunk([1, 2, 3, 4, 5], 2))` ·
+  `expected = [[1, 2], [3, 4], [5]]` · `if actual != expected: raise AssertionError("REPRODUCED: expected " + …)`
