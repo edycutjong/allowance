@@ -41,10 +41,12 @@ export function decide(profile: string, g: ParsedGuard): Verdict {
 }
 
 // The guard reads the WHOLE input: text past one window used to be cut off unscreened, so an
-// instruction placed after 12,000 characters of padding reached the coder. Windows overlap so a
-// payload split across a boundary is still read whole; past MAX_WINDOWS the input is refused.
+// instruction placed after 12,000 characters of padding reached the coder. Windows overlap by half, so any
+// payload up to 6,000 characters lies whole inside at least one window wherever it sits (kimi r07: a 1,000
+// overlap only guaranteed that for 1,000). Four windows screen up to 30,000 characters, about twice what a
+// model is ever shown (MAX_ISSUE_CHARS); past MAX_WINDOWS the input is refused.
 export const MAX_WINDOWS = 4;
-const OVERLAP_CHARS = 1_000;
+const OVERLAP_CHARS = 6_000;
 
 export function windows(text: string, size = MAX_INPUT_CHARS, overlap = OVERLAP_CHARS): string[] {
   if (text.length <= size) return [text];

@@ -34,11 +34,20 @@ test("windows cover every character, overlapping, and short input stays one wind
   assert.deepEqual(windows("abc"), ["abc"]);
   const text = "x".repeat(30_000);
   const w = windows(text);
-  assert.equal(w.length, 3);
+  assert.equal(w.length, 4);
   assert.ok(w.every((p) => p.length <= 12_000));
   assert.equal(w.at(-1)!.length > 0, true);
   // the windows, minus overlaps, add back up to the whole text
-  assert.equal(w[0].length + w.slice(1).reduce((n, p) => n + p.length - 1_000, 0), text.length);
+  assert.equal(w[0].length + w.slice(1).reduce((n, p) => n + p.length - 6_000, 0), text.length);
+});
+
+test("windows (kimi r07): a 6,000-character payload lies whole in some window wherever it is placed", () => {
+  const payload = "P".repeat(6_000);
+  for (const at of [0, 5_999, 6_000, 11_999, 12_000, 17_500, 23_999]) {
+    const text = "x".repeat(at) + payload + "x".repeat(30_000 - at - payload.length);
+    assert.ok(windows(text).some((p) => p.includes(payload)), `payload at ${at}`);
+  }
+  assert.ok(windows("x".repeat(30_001)).length > 4); // past 30,000 characters the input is refused
 });
 
 test("the least safe window decides; a window with no verdict makes the whole input unevaluated", () => {

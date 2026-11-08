@@ -66,7 +66,7 @@ export function systemPrompt(issue: Issue): string {
 }
 
 // What a model reads of an issue body. Bounded so a contributor's allowance is not spent on a pasted log,
-// and well inside what the guard screens (lib/guard.ts MAX_WINDOWS x 12,000 characters).
+// and well inside what the guard screens (lib/guard.ts: four half-overlapping 12,000-character windows, 30,000 characters).
 export const MAX_ISSUE_CHARS = 16_000;
 export function clipBody(body: string): string {
   if (!body) return "(no body)";
