@@ -19,7 +19,8 @@
 // (README "How a verdict is made"); the comparison direction is fixed (`!=` raises, `==` asserts).
 // Anything else is refused, and the refusal is shown to the contributor.
 
-const MARKER = "REPRODUCED:";
+// The one definition of the verdict marker: the gate, the system prompt and verdictFrom all read it (glm r07).
+export const MARKER = "REPRODUCED:";
 
 const STDLIB = new Set(
   ("abc argparse array ast asyncio base64 bisect builtins calendar collections contextlib copy csv dataclasses datetime " +

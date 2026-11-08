@@ -4,10 +4,10 @@
 //  2. RUN:   Allowance itself runs that exact script once in Otari's sandbox (POST /code/execute), billed to
 //     the contributor. The sandbox result decides the verdict; on a setup error the model gets one repair turn.
 import { chat, executeCode, type ChatErr, type ChatOk, type ExecResult, type OtariEnv, type ToolCall } from "./otari.ts";
-import { assertionKey, checkScript, pinRevision } from "./script-check.ts";
+import { MARKER, assertionKey, checkScript, pinRevision } from "./script-check.ts";
 
 export const CODER_POLICY = "allowance-coder"; // Qwen3-Coder 480B Turbo (DeepInfra) -> Qwen3-VL (DeepInfra) -> Qwen3-Coder 480B (Bedrock)
-export const MARKER = "REPRODUCED:";
+export { MARKER };
 
 export type Issue = {
   repo: string; // owner/name
