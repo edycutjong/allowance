@@ -106,7 +106,7 @@ export function reproComment(login: string, r: ReproResult, a: Allowance | null 
     "",
     "The model wrote this test from the issue; it cannot run code. Allowance checked that the test installs the real package" +
       at +
-      ", calls the function the issue names and asserts on its result, then ran it in Otari's sandbox" +
+      ", calls the function the issue names and asserts on its result, then " + (runs.length ? "ran it in Otari's sandbox" : "ran out of time before starting the sandbox") +
       (runs.length > 1 ? ` (${runs.length} runs: the first failed to set up and the model repaired the setup)` : "") +
       ". Read the script below.",
     "",

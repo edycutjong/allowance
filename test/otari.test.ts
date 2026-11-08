@@ -62,8 +62,9 @@ test("sandbox execution defaults omitted streams and turns malformed JSON into a
   assert.match(refused.stderr, /denied/);
 });
 
-test("repository pool defaults its ceiling and treats omitted spend as zero", async (t) => {
-  t.mock.method(globalThis, "fetch", async () => Response.json([{}]));
+test("repository pool defaults its ceiling, treats omitted spend as zero, and leaves out users with no daily window (kimi r08)", async (t) => {
+  const tomorrow = new Date(Date.now() + 86_400_000).toISOString();
+  t.mock.method(globalThis, "fetch", async () => Response.json([{ next_budget_reset_at: tomorrow }, { spend: 9 }]));
   assert.deepEqual(await getPool(env), { spentToday: 0, users: 1, ceilingUsd: 5, truncated: false });
   await assert.rejects(getPool(env, 5, async () => new Response("", { status: 401 })), /end-users 401/);
   await assert.rejects(getPool(env, 5, async () => Response.json({})), /filter is not a function/);

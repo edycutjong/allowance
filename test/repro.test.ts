@@ -254,11 +254,12 @@ test("pool: footer shows the repository pool next to the contributor allowance, 
   assert.match(allowanceLine("ana", MAINTAINER, pool), /maintainer: charged to the repository pool.*\$0\.28/);
 });
 
-test("pool: getPool sums end-user spend and counts users", async () => {
-  const f = (async () => new Response(JSON.stringify([{ spend: 0.05, reserved: 0 }, { spend: 0.0123, reserved: 0 }]))) as typeof fetch;
+test("pool: getPool sums end-user spend plus in-flight holds (kimi/grok r08) and counts users", async () => {
+  const reset = new Date(Date.now() + 3_600_000).toISOString();
+  const f = (async () => new Response(JSON.stringify([{ spend: 0.05, reserved: 0, next_budget_reset_at: reset }, { spend: 0.0123, reserved: 0.002, next_budget_reset_at: reset }]))) as typeof fetch;
   const p = await getPool({ OTARI_SERVICE_KEY: "k" }, 5, f);
   assert.equal(p.users, 2);
-  assert.ok(Math.abs(p.spentToday - 0.0623) < 1e-9);
+  assert.ok(Math.abs(p.spentToday - 0.0643) < 1e-9);
   assert.equal(p.ceilingUsd, 5);
 });
 
@@ -438,7 +439,7 @@ test("repro skips the sandbox when writing the script consumes the job deadline"
   if (result.kind === "ran") {
     assert.deepEqual(result.runs, []);
     assert.equal(result.verdict.kind, "inconclusive");
-    assert.match(result.verdict.reason, /never ran code/);
+    assert.match(result.verdict.reason, /the sandbox was not started/);
   }
 });
 

@@ -362,3 +362,36 @@ test("webhook schedules issue-opened triage and contains background authenticati
   await Promise.all(jobs);
   assert.ok(errors.mock.calls.some((c) => c.arguments[0] === "allowance job failed"));
 });
+
+test("repro (grok r08): a /repro while another run is in flight gets one visible, marked answer — and a redelivery stays quiet", async () => {
+  const running = { id: 1, body: "⏳ Reproducing for @bob in a sandbox… this comment will update.\n" + marker(40), created_at: new Date().toISOString(), user: { type: "Bot" } };
+  const w = world({ comments: [running] });
+  await onRepro(reproEvent(55), w.repo, E, w.f);
+  await onRepro(reproEvent(55), w.repo, E, w.f); // redelivery
+  const answers = w.comments.filter((c) => /another `\/repro` on this issue was already running/.test(c.body));
+  assert.equal(answers.length, 1);
+  assert.match(answers[0].body, new RegExp(marker(55)));
+  assert.ok(!w.calls.some((c) => c.url.endsWith("/chat/completions")));
+});
+
+test("repro (grok r08): when the failure edit is lost too, the failure is posted as a new comment", async () => {
+  const w = world();
+  const repo = new Repo("o/r", "token", async (url, init) =>
+    init?.method === "PATCH" || String(url).endsWith("/commits/HEAD") ? new Response("offline", { status: 502 }) : w.f(url, init));
+  await onRepro(reproEvent(), repo, E, w.f);
+  assert.equal(w.comments.filter((c) => c.body.includes(marker(55)) && !/Reproducing/.test(c.body)).length, 1);
+});
+
+test("repro (grok r08): if even the fallback failure comment cannot be posted, the trigger still gets its thumbs down", async () => {
+  const w = world();
+  let posts = 0;
+  const repo = new Repo("o/r", "token", async (url, init) => {
+    const u = String(url);
+    if (init?.method === "PATCH" || u.endsWith("/commits/HEAD")) return new Response("offline", { status: 502 });
+    if (init?.method === "POST" && /\/issues\/\d+\/comments$/.test(new URL(u).pathname) && ++posts > 1) return new Response("offline", { status: 502 });
+    return w.f(url, init);
+  });
+  await onRepro(reproEvent(), repo, E, w.f);
+  assert.equal(posts, 2);
+  assert.ok(w.calls.some((c) => c.url.endsWith("/reactions") && c.body.content === "-1"));
+});

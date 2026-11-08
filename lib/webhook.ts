@@ -104,11 +104,13 @@ export async function onRepro(p: any, repo: Repo, E: WebhookEnv, f: typeof fetch
   // `since` keeps long threads from pushing them past the first page.
   const since = new Date(Math.min(Date.parse(p.comment.created_at) || now, now - REPRO_WINDOW_MS)).toISOString();
   const skip = reproSkip(await repo.listComments(issue.number, since), p.comment.id, now);
+  const claim = `/issues/comments/${p.comment.id}`;
   if (skip.skip) {
     console.log("allowance skip /repro", p.comment.id, skip.why);
+    // a /repro while another runs gets a visible answer, once (the claim) and marked, so a redelivery stays quiet (grok r08)
+    if (skip.why === "in-flight" && (await repo.claim(claim))) await repo.comment(issue.number, STOOD_DOWN(login) + "\n" + marker(p.comment.id));
     return;
   }
-  const claim = `/issues/comments/${p.comment.id}`;
   if (!(await repo.claim(claim))) {
     console.log("allowance skip /repro", p.comment.id, "claimed by another delivery");
     return;
@@ -141,7 +143,9 @@ export async function onRepro(p: any, repo: Repo, E: WebhookEnv, f: typeof fetch
   } catch (e) {
     // Never leave "⏳ Reproducing…" behind: the placeholder becomes an error the contributor can act on.
     console.error("allowance /repro failed", issue.number, p.comment.id, String(e));
-    await repo.editComment(placeholder.id, failedComment(login, e) + "\n" + marker(p.comment.id)).catch(() => null);
+    const failed = failedComment(login, e) + "\n" + marker(p.comment.id);
+    // the placeholder already carries the marker, so a redelivery will not retry: post the failure if the edit is lost (grok r08)
+    await repo.editComment(placeholder.id, failed).catch(() => repo.comment(issue.number, failed).catch(() => null));
     await repo.react(p.comment.id, "-1");
     return;
   }
@@ -158,7 +162,8 @@ export async function onRepro(p: any, repo: Repo, E: WebhookEnv, f: typeof fetch
   try {
     // a new outcome replaces the old verdict label; a refusal (budget, guard) leaves it alone
     if (result.kind !== "refused") {
-      for (const l of ["repro:yes", "repro:no", "repro:inconclusive", "repro:ready", "repro:needs-steps"]) await repo.removeLabel(issue.number, l);
+      // in parallel: five sequential 15 s calls could outlast the function after a full job (deepseek r08)
+      await Promise.all(["repro:yes", "repro:no", "repro:inconclusive", "repro:ready", "repro:needs-steps"].map((l) => repo.removeLabel(issue.number, l)));
     }
     if (result.kind === "ran") {
       const label = { reproduced: "repro:yes", not_reproduced: "repro:no", inconclusive: "repro:inconclusive" }[result.verdict.kind];

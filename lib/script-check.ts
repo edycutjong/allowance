@@ -46,7 +46,8 @@ const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // `body`: the test statements (everything after the setup lines), tokenised and re-joined, with the called
 // project function written as § — a repair may change which module/function is imported, nothing else.
-export type ScriptFacts = { symbol: string; condition: string; raise: string; body: string };
+// `local`: the name the tested function (or its module) is bound to; `callLine`: the call's 1-based line.
+export type ScriptFacts = { symbol: string; condition: string; raise: string; body: string; local: string; callLine: number };
 
 export function installPattern(repo: string): RegExp {
   // git+https://github.com/<repo> then an optional @ref, ending at a quote, whitespace or .git
@@ -82,7 +83,7 @@ function tokenize(line: string): Tok[] | string {
     }
     const name = /^[A-Za-z_]\w*/.exec(line.slice(i));
     if (name) { out.push({ t: "name", v: name[0] }); i += name[0].length; continue; }
-    const num = /^(\d[\d_]*\.?\d*([eE][+-]?\d+)?j?|\.\d+([eE][+-]?\d+)?j?)/.exec(line.slice(i));
+    const num = /^(0[xX][0-9a-fA-F_]+|0[oO][0-7_]+|0[bB][01_]+|\d[\d_]*\.?\d*([eE][+-]?\d+)?j?|\.\d+([eE][+-]?\d+)?j?)/.exec(line.slice(i));
     if (num) { out.push({ t: "num", v: num[0] }); i += num[0].length; continue; }
     const op = /^(==|!=|\*\*|[()[\]{},:.=+\-*])/.exec(line.slice(i));
     if (op) { out.push({ t: "op", v: op[0] }); i += op[0].length; continue; }
@@ -102,6 +103,10 @@ class P {
   i = 0;
   k: Tok[];
   ctors: Set<string>;
+  // On the expectation side NaN is refused: nan != nan, so a NaN expectation can never pass (a2a r08:
+  // muse, grok, kimi). As a call ARGUMENT it stays legal (json.dumps(float("nan")) is a real report).
+  noNan = false;
+  nan = false;
   constructor(k: Tok[], ctors: Set<string>) { this.k = k; this.ctors = ctors; }
   peek(v?: string) { const t = this.k[this.i]; return t && (v === undefined || t.v === v) ? t : undefined; }
   eat(v: string) { if (this.peek(v)?.t === "op") { this.i++; return true; } return false; }
@@ -115,7 +120,13 @@ class P {
     if (t.t === "num") { this.i++; return true; }
     if (t.t === "str") { while (this.peek()?.t === "str") this.i++; return true; }
     if (t.t === "name" && (t.v === "True" || t.v === "False" || t.v === "None")) { this.i++; return true; }
-    if (t.t === "name" && this.ctors.has(t.v) && this.k[this.i + 1]?.v === "(") { this.i += 2; return this.args(")"); }
+    if (t.t === "name" && this.ctors.has(t.v) && this.k[this.i + 1]?.v === "(") {
+      const start = (this.i += 2);
+      if (!this.args(")")) return false;
+      // every string inside the constructor call, adjacent literals joined: float("n" "an"), float(str("nan"))
+      if (this.noNan && /nan/i.test(this.k.slice(start, this.i).map((x) => x.s ?? "").join(""))) { this.nan = true; return false; }
+      return true;
+    }
     if (t.t === "op" && t.v === "[") { this.i++; return this.items("]", false); }
     if (t.t === "op" && t.v === "(") { this.i++; return this.items(")", false); }
     if (t.t === "op" && t.v === "{") { this.i++; return this.items("}", true); }
@@ -153,12 +164,13 @@ class P {
 
 const join = (ks: Tok[]) => ks.map((k) => (k.t === "str" ? JSON.stringify(k.s) : k.t === "fstr" ? "f" + JSON.stringify(k.s) : k.v)).join(" ");
 
-// "REPRODUCED: ..." [+ "..." | + repr(v) | + str(v)]*   or   f"REPRODUCED: ... {v!r} ..."
+// "REPRODUCED: ..." [+ "..." | + repr(v)]*   or   f"REPRODUCED: ... {v!r} ..."
+// repr only: str(v) can contain a newline, which pushes the marker off stderr's last line (grok r08 P1-3).
 function markerMessage(k: Tok[], names: Set<string>): boolean {
   if (!k.length) return false;
   if (k[0].t === "fstr") {
     if (k.length !== 1 || !k[0].s!.startsWith(MARKER)) return false;
-    return [...k[0].s!.matchAll(/\{([^}]*)\}/g)].every((m) => /^(\w+)(![rs])?$/.test(m[1]) && names.has(m[1].replace(/!.*/, "")));
+    return [...k[0].s!.matchAll(/\{([^}]*)\}/g)].every((m) => /^\w+!r$/.test(m[1]) && names.has(m[1].slice(0, -2)));
   }
   if (k[0].t !== "str" || !k[0].s!.startsWith(MARKER)) return false;
   let i = 1;
@@ -166,7 +178,7 @@ function markerMessage(k: Tok[], names: Set<string>): boolean {
     if (k[i].t !== "op" || k[i].v !== "+") return false;
     if (k[i + 1]?.t === "str") { i += 2; continue; }
     const [f, open, v, close] = k.slice(i + 1, i + 5);
-    if (!(f && open && v && close && (f.v === "repr" || f.v === "str") && open.v === "(" && names.has(v.v) && v.t === "name" && close.v === ")")) return false;
+    if (!(f && open && v && close && f.v === "repr" && open.v === "(" && names.has(v.v) && v.t === "name" && close.v === ")")) return false;
     i += 5;
   }
   return true;
@@ -176,7 +188,7 @@ type Line = { n: number; indent: number; text: string; toks: Tok[] };
 
 export function checkScript(script: string, repo: string, issueText: string): { problem: string } | { facts: ScriptFacts } {
   const lines: Line[] = [];
-  for (const [n, raw] of script.split("\n").entries()) {
+  for (const [n, raw] of script.replace(/\r\n?/g, "\n").split("\n").entries()) {
     if (raw.trim() === "" || raw.trimStart().startsWith("#")) continue;
     if (raw.slice(0, raw.length - raw.trimStart().length).includes("\t")) return { problem: `line ${n + 1} is indented with a tab` };
     const toks = tokenize(raw);
@@ -266,7 +278,10 @@ export function checkScript(script: string, repo: string, issueText: string): { 
   if (ek[0]?.t === "name" && ek[1]?.v === "=" && !/^(if|assert)$/.test(ek[0].v)) {
     const q = new P(ek, ctors);
     q.i = 2;
-    if (ek[0].v === result || KEYWORDS.has(ek[0].v) || project.has(ek[0].v) || modules.has(ek[0].v) || ctors.has(ek[0].v) || !q.literal() || !q.done()) {
+    q.noNan = true;
+    const literalOk = q.literal() && q.done();
+    if (q.nan) return { problem: `${at(body[k])}: NaN never equals itself, so a NaN expectation could never pass` };
+    if (ek[0].v === result || KEYWORDS.has(ek[0].v) || project.has(ek[0].v) || modules.has(ek[0].v) || ctors.has(ek[0].v) || !literalOk) {
       return { problem: `${at(body[k])}: the expected value must be a literal assigned to a new name` };
     }
     expected = ek[0].v;
@@ -274,12 +289,17 @@ export function checkScript(script: string, repo: string, issueText: string): { 
   }
   const names = new Set([result, ...(expected ? [expected] : [])]);
   // the right-hand side of the comparison: a literal, or the expected name
+  let nanRhs = false;
   const rhs = (toks: Tok[], from: number, stop: number) => {
     if (stop === from + 1 && toks[from].t === "name" && toks[from].v === expected) return true;
     const q = new P(toks.slice(0, stop), ctors);
     q.i = from;
-    return q.literal() && q.done();
+    q.noNan = true;
+    const ok = q.literal() && q.done();
+    nanRhs ||= q.nan;
+    return ok;
   };
+  const nanProblem = (l: Line) => ({ problem: `${at(l)}: NaN never equals itself, so a NaN expectation could never pass` });
 
   // 3. the check
   const chk = body[k], kk = chk.toks;
@@ -288,6 +308,7 @@ export function checkScript(script: string, repo: string, issueText: string): { 
     const okHead = kk[1]?.t === "name" && kk[1].v === result && kk[kk.length - 1].v === ":";
     const isNot = kk[2]?.v === "is" && kk[3]?.v === "not" && kk.length === 6 && /^(None|True|False)$/.test(kk[4].v);
     if (!okHead || !(isNot || (kk[2]?.v === "!=" && rhs(kk, 3, kk.length - 1)))) {
+      if (nanRhs) return nanProblem(chk);
       return { problem: `${at(chk)}: the check must be \`if ${result} != <literal or expected>:\`` };
     }
     const r = body[k + 1];
@@ -301,6 +322,7 @@ export function checkScript(script: string, repo: string, issueText: string): { 
     const comma = kk.findIndex((x) => { if (x.t === "op" && "([{".includes(x.v)) depth++; if (x.t === "op" && ")]}".includes(x.v)) depth--; return depth === 0 && x.t === "op" && x.v === ","; });
     const isNone = kk[2]?.v === "is" && comma === 4 && /^(None|True|False)$/.test(kk[3].v);
     if (kk[1]?.v !== result || comma < 0 || !(isNone || (kk[2]?.v === "==" && rhs(kk, 3, comma))) || !markerMessage(kk.slice(comma + 1), names)) {
+      if (nanRhs) return nanProblem(chk);
       return { problem: `${at(chk)}: the check must be \`assert ${result} == <literal or expected>, "${MARKER} ..."\`` };
     }
     condition = join(kk.slice(0, comma)); raise = chk.text; last = k + 1;
@@ -315,14 +337,39 @@ export function checkScript(script: string, repo: string, issueText: string): { 
   const testBody = body
     .map((l) => join(l.toks.map((t, n): Tok => (l === call && n === j ? { t: "op", v: "§" } : t))))
     .join("\n");
-  return { facts: { symbol, condition, raise, body: (symToks === 3 ? testBody.replace(` . ${symbol} (`, " (") : testBody) } };
+  return { facts: { symbol, condition, raise, body: (symToks === 3 ? testBody.replace(` . ${symbol} (`, " (") : testBody), local, callLine: call.n } };
 }
 
 // What a repair turn must keep token for token (string literals included): the whole test body.
 export const assertionKey = (f: ScriptFacts) => f.body;
 
-// Pin the install to the commit the verdict is about.
+// Pin the install to the commit the verdict is about. Only the install line: the same URL inside a string
+// literal is test data the gate already approved and must not change (grok r08 P0-1).
 export function pinRevision(script: string, repo: string, sha: string | undefined): string {
   if (!sha) return script;
-  return script.replace(new RegExp(installPattern(repo).source, "g"), `git+https://github.com/${repo}@${sha}`);
+  return script
+    .split("\n")
+    .map((l) => (/^\s*subprocess\.run\(/.test(l) ? l.replace(installPattern(repo), `git+https://github.com/${repo}@${sha}`) : l))
+    .join("\n");
+}
+
+// The gate cannot know which import IS the project (glm r08 P0: `from requests import get` passed as "the
+// project"). So Allowance adds its own check, right before the call: the tested object's file must belong to
+// the distribution pip installed from github.com/<repo> (PEP 610 direct_url.json), at the pinned commit when
+// there is one. Otherwise the run ends in a SETUP error, which is Inconclusive, never a verdict.
+export function withProvenance(script: string, repo: string, f: Pick<ScriptFacts, "local" | "callLine" | "symbol">, sha?: string): string {
+  const lines = script.replace(/\r\n?/g, "\n").split("\n");
+  const want = `https://github.com/${repo}`;
+  const check = [
+    `# added by Allowance, not the model: ${f.symbol} must come from ${want}${sha ? "@" + sha.slice(0, 7) : ""}`,
+    "import importlib.metadata as _al_md, inspect as _al_in, os as _al_os, json as _al_js",
+    `_al_f = _al_os.path.realpath(_al_in.getfile(${f.local}))`,
+    // only URL/VCS installs carry direct_url.json, so the file walk is limited to those few distributions
+    '_al_d = [d for d in _al_md.distributions() if d.read_text("direct_url.json") and any(_al_os.path.realpath(str(d.locate_file(p))) == _al_f for p in (d.files or []))]',
+    '_al_u = _al_js.loads((_al_d[0].read_text("direct_url.json") or "{}") if _al_d else "{}")',
+    `if _al_u.get("url", "").removesuffix(".git").rstrip("/") != ${JSON.stringify(want)}${sha ? ` or _al_u.get("vcs_info", {}).get("commit_id") != ${JSON.stringify(sha)}` : ""}:`,
+    `    raise RuntimeError("SETUP: ${f.symbol} does not come from ${want}${sha ? " at the pinned commit" : ""} (" + _al_f + ")")`,
+  ];
+  lines.splice(f.callLine - 1, 0, ...check);
+  return lines.join("\n");
 }

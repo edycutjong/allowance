@@ -4,7 +4,7 @@
 //  2. RUN:   Allowance itself runs that exact script once in Otari's sandbox (POST /code/execute), billed to
 //     the contributor. The sandbox result decides the verdict; on a setup error the model gets one repair turn.
 import { chat, executeCode, type ChatErr, type ChatOk, type ExecResult, type OtariEnv, type ToolCall } from "./otari.ts";
-import { MARKER, assertionKey, checkScript, pinRevision } from "./script-check.ts";
+import { MARKER, assertionKey, checkScript, pinRevision, withProvenance } from "./script-check.ts";
 
 export const CODER_POLICY = "allowance-coder"; // Qwen3-Coder 480B Turbo (DeepInfra) -> Qwen3-VL (DeepInfra) -> Qwen3-Coder 480B (Bedrock)
 export { MARKER };
@@ -131,7 +131,7 @@ export function finalException(stderr: string | undefined): { type: string; mess
 export function verdictFrom(calls: ToolCall[]): Verdict {
   const runs = execs(calls);
   const last = runs[runs.length - 1] ?? null;
-  if (!last) return { kind: "inconclusive", reason: "the model never ran code in the sandbox", run: null, runs: 0 };
+  if (!last) return { kind: "inconclusive", reason: "the sandbox was not started: the job ran out of time before the run", run: null, runs: 0 };
   const failed = last.status === "failed" || (typeof last.exit_code === "number" && last.exit_code !== 0);
   const exc = finalException(last.stderr);
   if (failed && exc?.type === "AssertionError" && exc.message.startsWith(MARKER)) {
@@ -235,7 +235,7 @@ export async function runRepro(
       break;
     }
     keep = assertionKey(checked.facts);
-    const script = pinRevision(raw!, issue.repo, cfg.revision);
+    const script = withProvenance(pinRevision(raw!, issue.repo, cfg.revision), issue.repo, checked.facts, cfg.revision);
     if (deadline - Date.now() < 5_000) break; // no time left for a run; the result says what happened so far
     const exec = await executeCode(script, endUser, execEnv, fetchImpl, deadline);
     // A refusal (budget, auth) is final. A sandbox that is down after its retry is not a verdict either:

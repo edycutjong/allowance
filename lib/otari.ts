@@ -240,11 +240,13 @@ export async function getPool(
   if (!r.ok) throw new Error(`end-users ${r.status}`);
   const raw = (await r.clone().json()) as unknown[];
   const all = Array.isArray(raw) ? raw.length : 0;
-  // A user whose reset time has passed has not been reset yet (no request since): that spend is a past window's.
+  // Only users on a daily window count as "today": no reset time means lifetime spend (kimi r08), and a reset
+  // time already past means a past window not yet rolled over (no request since).
   const now = Date.now();
   const list = ((await r.json()) as Pick<EndUser, "spend" | "reserved" | "next_budget_reset_at">[]).filter(
-    (u) => !u.next_budget_reset_at || Date.parse(u.next_budget_reset_at) > now,
+    (u) => Boolean(u.next_budget_reset_at) && Date.parse(u.next_budget_reset_at!) > now,
   );
   // one page of up to 1000 end users; past that the footer says "at least"
-  return { spentToday: list.reduce((n, u) => n + (u.spend ?? 0), 0), users: list.length, ceilingUsd, truncated: all >= 1000 };
+  // spend + in-flight holds, the same sum the per-user line uses (allowanceOf) (kimi r08, grok r08)
+  return { spentToday: list.reduce((n, u) => n + (u.spend ?? 0) + (u.reserved ?? 0), 0), users: list.length, ceilingUsd, truncated: all >= 1000 };
 }

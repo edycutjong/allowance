@@ -225,7 +225,7 @@ test("gate r07 (found verifying): arguments and the marker message cannot run ot
 
 test("gate r07 (kimi P1-3): the assert splits at the top-level comma, so list expectations work", () => {
   assert.equal(problem(T(`actual = parse_duration("1h30m")\nassert actual == [1, (2, 3)], "REPRODUCED: got " + repr(actual)`)), null);
-  assert.equal(problem(T(`actual = parse_duration("1h30m")\nexpected = {"a": [1, 2], "b": None}\nassert actual == expected, f"REPRODUCED: {actual!r} vs {expected}"`)), null);
+  assert.equal(problem(T(`actual = parse_duration("1h30m")\nexpected = {"a": [1, 2], "b": None}\nassert actual == expected, f"REPRODUCED: {actual!r} vs {expected!r}"`)), null);
 });
 
 test("gate r07: the tokenizer and literal grammar refuse what they cannot read, and accept the literal forms the template needs", () => {
@@ -262,4 +262,55 @@ test("gate r07: the tokenizer and literal grammar refuse what they cannot read, 
     T(`actual = sorted(parse_duration({"a", "b"}, (1,), float("nan"), b"x", r"\\d", None))\n${IF}`),
   ];
   for (const src of accepted) assert.equal(problem(src), null, src.split("\n").slice(2).join(" | "));
+});
+
+// ── a2a round 08 ─────────────────────────────────────────────────────────────────────────────────
+import { withProvenance } from "../lib/script-check.ts";
+
+test("gate r08 (muse P1-1, grok P0-2, kimi P1-1): a NaN expectation is refused — nan != nan could never pass — but NaN stays a legal argument", () => {
+  const C = 'actual = parse_duration("1h30m")';
+  for (const exp of ['float("nan")', 'float("NaN")', '[float("nan")]', '{"a": float("nan")}', 'float("n" "an")', 'float(str("nan"))', 'complex("nan+0j")']) {
+    assert.match(problem(T(`${C}\nif actual != ${exp}:\n${RAISE}`))!, /NaN never equals itself/, exp);
+    assert.match(problem(T(`${C}\nexpected = ${exp}\nif actual != expected:\n${RAISE}`))!, /NaN never equals itself/, exp);
+    assert.match(problem(T(`${C}\nassert actual == ${exp}, "REPRODUCED: x"`))!, /NaN never equals itself/, exp);
+  }
+  assert.equal(problem(T(`actual = parse_duration(float("nan"))\nif actual != "NaN":\n${RAISE}`)), null);
+  assert.equal(problem(T(`${C}\nif actual != float("inf"):\n${RAISE}`)), null);
+});
+
+test("pinRevision (grok r08 P0-1) pins only the install line; the same URL inside test data is left as the gate approved it", () => {
+  const s = T('actual = parse_duration("git+https://github.com/o/r")\nif actual != "git+https://github.com/o/r":\n' + RAISE);
+  assert.equal(problem(s), null);
+  const pinned = pinRevision(s, REPO, "f".repeat(40)).split("\n");
+  assert.match(pinned[1], new RegExp(`o/r@${"f".repeat(40)}"`));
+  assert.equal(pinned.filter((l) => l.includes("@" + "f".repeat(40))).length, 1);
+  assert.ok(pinned.some((l) => l.includes('!= "git+https://github.com/o/r":')));
+});
+
+test("gate r08 (grok P1-3): the marker message may quote values with repr only — str() can break the marker across lines", () => {
+  const C = 'actual = parse_duration("1h30m")\nif actual != 5400:\n';
+  assert.match(problem(T(C + '    raise AssertionError("REPRODUCED: got " + str(actual))'))!, /built only from strings/);
+  assert.match(problem(T(C + '    raise AssertionError(f"REPRODUCED: got {actual}")'))!, /built only from strings/);
+  assert.match(problem(T(C + '    raise AssertionError(f"REPRODUCED: got {actual!s}")'))!, /built only from strings/);
+  assert.equal(problem(T(C + '    raise AssertionError(f"REPRODUCED: got {actual!r}")')), null);
+});
+
+test("gate r08 (kimi P2-2): CRLF replies and hex/octal/binary literals are read, not refused", () => {
+  assert.equal(problem(T('actual = parse_duration(0xFF, 0o17, 0b101)\nif actual != 5400:\n' + RAISE).replace(/\n/g, "\r\n")), null);
+});
+
+test("withProvenance (glm r08 P0): Allowance checks, right before the call, that the tested function comes from the pinned repository", () => {
+  const s = T('actual = parse_duration("1h30m")\nif actual != 5400:\n' + RAISE);
+  const r = checkScript(s, REPO, ISSUE);
+  assert.ok("facts" in r);
+  if (!("facts" in r)) return;
+  const out = withProvenance(s, REPO, r.facts, "a".repeat(40)).split("\n");
+  const at = out.findIndex((l) => l.startsWith("actual = "));
+  assert.match(out[at - 1], /raise RuntimeError\("SETUP: parse_duration does not come from https:\/\/github\.com\/o\/r at the pinned commit/);
+  assert.ok(out.some((l) => l.includes(`_al_in.getfile(parse_duration)`)));
+  assert.ok(out.some((l) => l.includes(`!= "https://github.com/o/r" or _al_u.get("vcs_info", {}).get("commit_id") != "${"a".repeat(40)}"`)));
+  assert.ok(out.slice(0, at).some((l) => l.startsWith("# added by Allowance, not the model")));
+  const noSha = withProvenance(s, REPO, r.facts).split("\n");
+  assert.ok(!noSha.some((l) => l.includes("commit_id")));
+  assert.ok(noSha.some((l) => l.endsWith('does not come from https://github.com/o/r (" + _al_f + ")")')));
 });
