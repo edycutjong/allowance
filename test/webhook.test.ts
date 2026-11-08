@@ -185,3 +185,124 @@ test("deepseek r04 P1-2: claimed but the placeholder cannot be posted → 👎 o
   assert.ok(w.calls.some((c) => c.url.endsWith("/reactions") && c.body.content === "-1"));
   assert.equal(w.calls.filter((c) => c.url.endsWith("/chat/completions")).length, 0);
 });
+
+test("webhook environment defaults fail closed and expand escaped private-key newlines", async (t) => {
+  const { envFromProcess } = await import("../lib/webhook.ts");
+  assert.deepEqual(envFromProcess({}), { otari: { OTARI_BASE_URL: undefined, OTARI_API_KEY: "", OTARI_SERVICE_KEY: "" }, appId: "", pem: "", secret: "", guardUrl: undefined, mcpServerIds: [], poolCeilingUsd: 5 });
+  const previous = process.env;
+  process.env = { GITHUB_APP_ID: "42", GITHUB_PRIVATE_KEY: "line1\\nline2", GITHUB_WEBHOOK_SECRET: "secret", GUARD_TOKEN: "token", OTARI_API_KEY: "bot", OTARI_SERVICE_KEY: "service", OTARI_BASE_URL: "https://gateway.test", OTARI_MCP_GITHUB_ID: "mcp", POOL_CEILING_USD: "10" };
+  t.after(() => { process.env = previous; });
+  assert.deepEqual(envFromProcess(), { otari: { OTARI_BASE_URL: "https://gateway.test", OTARI_API_KEY: "bot", OTARI_SERVICE_KEY: "service" }, appId: "42", pem: "line1\nline2", secret: "secret", guardUrl: "https://allowance.edycu.dev/api/guard/token", mcpServerIds: ["mcp"], poolCeilingUsd: 10 });
+  assert.equal(envFromProcess({ GUARD_TOKEN: "t", PUBLIC_BASE_URL: "https://custom.test" }).guardUrl, "https://custom.test/api/guard/t");
+});
+
+test("triage racing deliveries claim the issue once before calling the model", async (t) => {
+  const w = world();
+  t.mock.method(globalThis, "fetch", w.f);
+  await Promise.all([onIssueOpened({ issue }, w.repo, E), onIssueOpened({ issue }, w.repo, E)]);
+  assert.equal(w.comments.length, 1);
+  assert.equal(w.calls.filter((c) => c.url.endsWith("/chat/completions")).length, 1);
+});
+
+test("triage guard refusals add a blocked label and retain their idempotency marker", async () => {
+  const w = world({ chat: () => Response.json({ code: "guardrail_violation" }, { status: 403 }) });
+  await onIssueOpened({ issue: { ...issue, author_association: "OWNER" } }, w.repo, E, w.f);
+  assert.match(w.comments[0].body, /Blocked by the guardrail/);
+  assert.ok(w.comments[0].body.endsWith(TRIAGE_MARKER));
+  assert.ok(w.calls.some((c) => c.body?.labels?.includes("allowance:blocked")));
+});
+
+test("triage upstream refusals post a reply without a blocked label and tolerate missing allowance reads", async () => {
+  const w = world({ chat: () => new Response("offline", { status: 503 }) });
+  const f: typeof fetch = async (url, init) => String(url).includes("/end-user") ? new Response("offline", { status: 503 }) : w.f(url, init);
+  await onIssueOpened({ issue: { ...issue, author_association: undefined } }, w.repo, E, f);
+  assert.match(w.comments[0].body, /Could not run/);
+  assert.ok(w.comments[0].body.endsWith(TRIAGE_MARKER));
+  assert.ok(!w.calls.some((c) => c.url.endsWith("/labels")));
+});
+
+test("triage with an unparseable model reply welcomes the author without assigning labels", async () => {
+  const w = world({ chat: () => Response.json({ choices: [{ message: { content: "not JSON" } }] }) });
+  await onIssueOpened({ issue }, w.repo, E, w.f);
+  assert.match(w.comments[0].body, /Thanks @alice/);
+  assert.doesNotMatch(w.comments[0].body, /Triage:/);
+  assert.ok(!w.calls.some((c) => c.url.endsWith("/labels")));
+});
+
+test("maintainer repro uses the repository pool even when the head revision cannot be read", async (t) => {
+  const w = world({ chat: () => Response.json({ choices: [{ message: { content: reproScript } }] }), exec: () => Response.json({ return_code: 0, stdout: "NOT REPRODUCED" }) });
+  const f: typeof fetch = async (url, init) => String(url).endsWith("/commits/HEAD") ? new Response("offline", { status: 503 }) : w.f(url, init);
+  const repo = new Repo("o/r", "token", f);
+  t.mock.method(globalThis, "fetch", f);
+  const p = reproEvent();
+  p.comment.author_association = "MEMBER";
+  p.comment.created_at = "invalid date";
+  await onRepro(p, repo, E);
+  assert.match(w.comments[0].body, /is a maintainer/);
+  assert.match(w.comments[0].body, /Not reproduced/);
+  const chat = w.calls.find((c) => c.url.endsWith("/chat/completions"))!;
+  assert.equal(chat.body.user, undefined);
+  assert.ok(w.calls.some((c) => c.body?.labels?.includes("repro:no")));
+});
+
+test("inconclusive sandbox runs label the issue and react with a thumbs down", async () => {
+  const w = world({ chat: () => Response.json({ choices: [{ message: { content: reproScript } }] }), exec: () => Response.json({ return_code: 0, stdout: "no verdict" }) });
+  await onRepro(reproEvent(), w.repo, E, w.f);
+  assert.match(w.comments[0].body, /Inconclusive/);
+  assert.ok(w.calls.some((c) => c.body?.labels?.includes("repro:inconclusive")));
+  assert.ok(w.calls.some((c) => c.url.endsWith("/reactions") && c.body.content === "-1"));
+});
+
+test("repro guard refusals preserve old verdict labels and flag blocked input", async () => {
+  const w = world({ chat: () => Response.json({ code: "guardrail_violation" }, { status: 403 }) });
+  await onRepro(reproEvent(), w.repo, E, w.f);
+  assert.match(w.comments[0].body, /Blocked by the guardrail/);
+  assert.ok(!w.calls.some((c) => c.method === "DELETE"));
+  assert.ok(w.calls.some((c) => c.body?.labels?.includes("allowance:blocked")));
+});
+
+test("repro upstream refusals leave labels alone", async () => {
+  const w = world({ chat: () => new Response("offline", { status: 503 }) });
+  await onRepro(reproEvent(), w.repo, E, w.f);
+  assert.match(w.comments[0].body, /Could not run/);
+  assert.ok(!w.calls.some((c) => c.url.includes("/labels")));
+});
+
+test("repro failures still react when both the verdict and error comment edits fail", async () => {
+  const w = world();
+  const repo = new Repo("o/r", "token", async (url, init) => init?.method === "PATCH" ? new Response("offline", { status: 502 }) : w.f(url, init));
+  await onRepro(reproEvent(), repo, E, w.f);
+  assert.ok(w.calls.some((c) => c.url.endsWith("/reactions") && c.body.content === "-1"));
+});
+
+test("webhook ignores noncommands, pull requests and events lacking installation or repository data", async () => {
+  const deps = { env: E, waitUntil: () => assert.fail("ignored event scheduled a job") };
+  for (const p of [
+    { ...reproEvent(), action: "edited" },
+    { ...reproEvent(), issue: { ...issue, pull_request: {} } },
+    { ...reproEvent(), comment: {} },
+    { ...reproEvent(), installation: undefined },
+    { ...reproEvent(), repository: undefined },
+    { ...reproEvent(), installation: {}, repository: {} },
+  ]) {
+    const res = await handleWebhook(delivery("issue_comment", p), deps);
+    assert.equal(res.status, 200);
+    assert.ok((await res.json()).ignored);
+  }
+  assert.equal((await handleWebhook(delivery("issues", { action: "closed" }), deps)).status, 200);
+});
+
+test("webhook schedules issue-opened triage and contains background authentication failures", async (t) => {
+  const w = world();
+  const jobs: Promise<unknown>[] = [];
+  const p = { action: "opened", issue, installation: { id: 9 }, repository: { full_name: "o/r" } };
+  const res = await handleWebhook(delivery("issues", p), { env: E, fetchImpl: w.f, repoFor: async () => w.repo, waitUntil: (p) => void jobs.push(p) });
+  assert.equal(res.status, 202);
+  await Promise.all(jobs);
+  assert.ok(w.comments[0].body.endsWith(TRIAGE_MARKER));
+  const errors = t.mock.method(console, "error", () => {});
+  const failed = await handleWebhook(delivery("issues", p), { env: E, repoFor: async () => { throw new Error("authentication offline"); }, waitUntil: (p) => void jobs.push(p) });
+  assert.equal(failed.status, 202);
+  await Promise.all(jobs);
+  assert.ok(errors.mock.calls.some((c) => c.arguments[0] === "allowance job failed"));
+});
