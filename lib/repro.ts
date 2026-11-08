@@ -248,7 +248,7 @@ export async function runRepro(
     // screened like the issue was before the coder reads it.
     // Only the line that ended the run, clipped: a probe (194e59da) showed Otari screens this message, yet
     // Qwen3Guard passed #5's injection once it was framed as a ModuleNotFoundError. Less quoted text, less to slip.
-    const lastErr = (exec.stderr.split("\n").map((l) => l.trim()).filter(Boolean).pop() ?? `return code ${exec.returnCode}`).slice(0, 300);
+    const lastErr = exec.stderr.split("\n").map((l) => l.trim()).filter(Boolean).pop()!.slice(0, 300);
     const repair: Record<string, unknown> = {
       ...body,
       messages: [

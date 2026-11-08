@@ -56,8 +56,8 @@ const BADGE: Record<Verdict["kind"], string> = {
 
 // pip's root/upgrade notices are sandbox noise, not evidence
 const NOISE = /^(WARNING: Running pip as the 'root' user|\[notice\]|\s*warn\()/;
-const tail = (s: string | undefined, n = 1200) => {
-  const t = (s ?? "")
+const tail = (s: string, n = 1200) => {
+  const t = s
     // eslint-disable-next-line no-control-regex -- strips ANSI colour codes from sandbox output
     .replace(/\x1b\[[0-9;]*m/g, "")
     .split("\n")

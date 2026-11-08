@@ -416,3 +416,48 @@ test("pool: a contributor whose daily window already passed is not counted as sp
   const p = await getPool(env, 5, f);
   assert.deepEqual([p.spentToday, p.users], [0.01, 1]);
 });
+
+test("scriptProblem reports a rejected script instead of accepting model prose", async () => {
+  const { scriptProblem } = await import("../lib/repro.ts");
+  assert.match(scriptProblem("print('done')", issue)!, /does not pip-install/);
+});
+
+test("repro skips the sandbox when writing the script consumes the job deadline", async (t) => {
+  let now = 1_000_000;
+  t.mock.method(Date, "now", () => now);
+  let calls = 0;
+  const f: typeof fetch = async (url) => {
+    assert.ok(String(url).endsWith("/chat/completions"));
+    calls++;
+    now += 240_000;
+    return Response.json({ choices: [{ message: { content: good } }] });
+  };
+  const result = await runRepro(issue, "alice", {}, env, f);
+  assert.equal(calls, 1);
+  assert.equal(result.kind, "ran");
+  if (result.kind === "ran") {
+    assert.deepEqual(result.runs, []);
+    assert.equal(result.verdict.kind, "inconclusive");
+    assert.match(result.verdict.reason, /never ran code/);
+  }
+});
+
+test("a sandbox outage after a repair preserves the first run and both model costs", async () => {
+  let chats = 0, runs = 0;
+  const f: typeof fetch = async (url) => {
+    if (String(url).endsWith("/chat/completions")) {
+      chats++;
+      return Response.json({ choices: [{ message: { content: good } }], usage: { cost_usd: 0.001 } });
+    }
+    return runs++ === 0 ? Response.json({ return_code: 1, stderr: tb("ModuleNotFoundError: missing package") }) : new Response("{}", { status: 503 });
+  };
+  const result = await runRepro(issue, "alice", {}, env, f);
+  assert.equal(chats, 2);
+  assert.equal(runs, 3);
+  assert.equal(result.kind, "ran");
+  if (result.kind === "ran") {
+    assert.equal(result.runs.length, 1);
+    assert.equal(result.modelCostUsd, 0.002);
+    assert.match(result.verdict.reason, /ModuleNotFoundError/);
+  }
+});

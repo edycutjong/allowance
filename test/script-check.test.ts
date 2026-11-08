@@ -144,3 +144,12 @@ test("gate (found verifying r04): the tested function must come from the install
   assert.match(problem(GOOD.replace("from pocketkit import", 'sys.path.insert(0, "/tmp")\nfrom pocketkit import'))!, /writes files or changes the import path/);
   assert.match(problem(GOOD.replace("from pocketkit import", 'import os\nos.system("pip install evilkit")\nfrom pocketkit import'))!, /exactly one subprocess|import path/);
 });
+
+test("gate rejects reports without a named function and scripts without a reproduction assertion", () => {
+  assert.match(problem(GOOD, "")!, /never calls a project function that the issue names/);
+  assert.match(problem(GOOD.replace('    raise AssertionError("REPRODUCED: expected 5400, got " + repr(actual))', '    print("wrong result")'))!, /no REPRODUCED assertion/);
+});
+
+test("gate rejects extra green verdict text outside the final print", () => {
+  assert.match(problem(GOOD + '\nmessage = "NOT REPRODUCED"')!, /NOT REPRODUCED appears outside the final print/);
+});
