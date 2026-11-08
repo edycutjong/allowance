@@ -39,5 +39,5 @@ test("GET /api/health returns status ok and the package version", async () => {
   const { GET } = await import("../api/health.ts");
   const body = await (await GET()).json();
   assert.equal(body.status, "ok");
-  assert.match(body.version, /^\d+\.\d+\.\d+$/);
+  assert.match(body.version, /^\d+\.\d+\.\d+(-development)?$/); // the deploy stamps the release version
 });

@@ -176,7 +176,8 @@ jobs:
           for i in $(seq 1 12); do
             body=$(curl -fsS https://allowance.edycu.dev/api/health || true)
             echo "attempt $i: $body"
-            echo "$body" | grep -q "\"version\":\"$WANT_VERSION\"" && { echo "$body" | grep -q "\"commit\":\"$want\"" || echo "$body" | grep -q '"commit":null'; } && exit 0
+            # exact version AND exact commit: a missing or null commit is not this deploy (a2a r07: codex F6, opus, muse, grok)
+            jq -e --arg v "$WANT_VERSION" --arg c "$want" '.version == $v and .commit == $c' <<<"$body" >/dev/null && exit 0
             sleep 5
           done
           exit 1
