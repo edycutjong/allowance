@@ -76,6 +76,7 @@ export class Repo {
   // Atomic claim on an issue ("/issues/7") or comment ("/issues/comments/55"): GitHub keeps one reaction
   // per user and content, answering 201 when this app's 👀 is new and 200 when it already exists. Two
   // deliveries racing on the same event therefore get one 201 between them; only that one does the work.
+  private claimed = new Map<string, number>();
   async claim(path: string): Promise<boolean> {
     const r = await this.fetchImpl(`${API}/repos/${this.fullName}${path}/reactions`, {
       method: "POST",
@@ -83,9 +84,21 @@ export class Repo {
       body: JSON.stringify({ content: "eyes" }),
       signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
     });
-    if (r.status === 201) return true;
+    if (r.status === 201) {
+      const j = (await r.json()) as { id?: unknown };
+      if (typeof j?.id === "number") this.claimed.set(path, j.id);
+      return true;
+    }
     if (r.status === 200) return false;
     throw new Error(`GitHub claim ${path} -> ${r.status}`);
+  }
+  // Give a claim back when the work it guarded failed before leaving a marker, so a redelivery can retry
+  // instead of finding the 👀 and skipping forever (a2a r07: opus, glm, muse, grok).
+  async unclaim(path: string) {
+    const id = this.claimed.get(path);
+    if (id === undefined) return;
+    this.claimed.delete(path);
+    await this.call("DELETE", `${path}/reactions/${id}`).catch(() => null);
   }
     react(commentId: number, content: "eyes" | "rocket" | "-1" | "+1") {
     return this.call("POST", `/issues/comments/${commentId}/reactions`, { content }).catch(() => null);

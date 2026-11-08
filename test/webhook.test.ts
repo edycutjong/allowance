@@ -43,7 +43,7 @@ function world(opts: { comments?: Comment[]; chat?: (body: any) => Response; exe
         const k = u.pathname + body.content; // GitHub: one reaction per user and content
         const isNew = !reactions.has(k);
         reactions.add(k);
-        return Response.json({ content: body.content }, { status: isNew ? 201 : 200 });
+        return Response.json({ id: nextId++, content: body.content }, { status: isNew ? 201 : 200 });
       }
       if (method === "PATCH") {
         const c = comments.find((x) => x.id === Number(u.pathname.split("/").pop()));
@@ -229,20 +229,29 @@ test("triage with an unparseable model reply welcomes the author without assigni
   assert.ok(!w.calls.some((c) => c.url.endsWith("/labels")));
 });
 
-test("maintainer repro uses the repository pool even when the head revision cannot be read", async (t) => {
+test("maintainer repro uses the repository pool and pins the run to the head revision", async (t) => {
   const w = world({ chat: () => Response.json({ choices: [{ message: { content: reproScript } }] }), exec: () => Response.json({ return_code: 0, stdout: "NOT REPRODUCED" }) });
-  const f: typeof fetch = async (url, init) => String(url).endsWith("/commits/HEAD") ? new Response("offline", { status: 503 }) : w.f(url, init);
-  const repo = new Repo("o/r", "token", f);
-  t.mock.method(globalThis, "fetch", f);
+  t.mock.method(globalThis, "fetch", w.f);
   const p = reproEvent();
   p.comment.author_association = "MEMBER";
   p.comment.created_at = "invalid date";
-  await onRepro(p, repo, E);
+  await onRepro(p, w.repo, E);
   assert.match(w.comments[0].body, /is a maintainer/);
   assert.match(w.comments[0].body, /Not reproduced/);
   const chat = w.calls.find((c) => c.url.endsWith("/chat/completions"))!;
   assert.equal(chat.body.user, undefined);
   assert.ok(w.calls.some((c) => c.body?.labels?.includes("repro:no")));
+});
+
+test("repro (codex r07 F5): an unreadable or malformed head revision stops before any model or sandbox spend", async () => {
+  for (const head of [() => new Response("offline", { status: 503 }), () => Response.json({ sha: "main" })]) {
+    const w = world({ chat: () => assert.fail("model called without a pinned revision") });
+    const f: typeof fetch = async (url, init) => String(url).endsWith("/commits/HEAD") ? head() : w.f(url, init);
+    await onRepro(reproEvent(), new Repo("o/r", "token", f), E, f);
+    assert.ok(!w.calls.some((c) => c.url.endsWith("/code/execute")));
+    assert.doesNotMatch(w.comments[0].body, /Reproducing/);
+    assert.ok(w.calls.some((c) => c.url.endsWith("/reactions") && c.body.content === "-1"));
+  }
 });
 
 test("inconclusive sandbox runs label the issue and react with a thumbs down", async () => {
@@ -268,11 +277,57 @@ test("repro upstream refusals leave labels alone", async () => {
   assert.ok(!w.calls.some((c) => c.url.includes("/labels")));
 });
 
-test("repro failures still react when both the verdict and error comment edits fail", async () => {
+test("repro failures still react when both the run and the error comment edit fail", async () => {
   const w = world();
-  const repo = new Repo("o/r", "token", async (url, init) => init?.method === "PATCH" ? new Response("offline", { status: 502 }) : w.f(url, init));
+  const repo = new Repo("o/r", "token", async (url, init) =>
+    init?.method === "PATCH" || String(url).endsWith("/commits/HEAD") ? new Response("offline", { status: 502 }) : w.f(url, init));
   await onRepro(reproEvent(), repo, E, w.f);
   assert.ok(w.calls.some((c) => c.url.endsWith("/reactions") && c.body.content === "-1"));
+});
+
+test("repro (grok r07): a paid verdict whose edit fails is posted as a new comment, never as 'comment /repro again'", async () => {
+  const w = world({ chat: () => Response.json({ choices: [{ message: { content: reproScript } }] }), exec: () => Response.json({ return_code: 0, stdout: "NOT REPRODUCED" }) });
+  const repo = new Repo("o/r", "token", async (url, init) => init?.method === "PATCH" ? new Response("offline", { status: 502 }) : w.f(url, init));
+  await onRepro(reproEvent(), repo, E, w.f);
+  const posted = w.comments.filter((c) => /Not reproduced/.test(c.body));
+  assert.equal(posted.length, 1);
+  assert.match(posted[0].body, new RegExp(marker(55)));
+  assert.ok(!w.comments.some((c) => /comment `?\/repro`? again/i.test(c.body) && /Not reproduced/.test(c.body)));
+  assert.equal(w.calls.filter((c) => c.url.endsWith("/code/execute")).length, 1);
+});
+
+test("repro (codex r07 F3): two different /repro comments racing past the in-flight check run once; the later one stands down", async () => {
+  const w = world({ chat: () => Response.json({ choices: [{ message: { content: reproScript } }] }), exec: () => Response.json({ return_code: 0, stdout: "NOT REPRODUCED" }) });
+  // both deliveries read the thread before either placeholder exists
+  let reads = 0;
+  const empty = new Set([1, 2]);
+  const f: typeof fetch = async (url, init) =>
+    (init?.method ?? "GET") === "GET" && String(url).includes("/comments?") && empty.has(++reads) ? Response.json([]) : w.f(url, init);
+  const repo = new Repo("o/r", "token", f);
+  const a = onRepro(reproEvent(55), repo, E, f);
+  const b = onRepro(reproEvent(56), repo, E, f);
+  await Promise.all([a, b]);
+  assert.equal(w.calls.filter((c) => c.url.endsWith("/code/execute")).length, 1);
+  assert.equal(w.comments.filter((c) => /another `\/repro` on this issue was already running/.test(c.body)).length, 1);
+  assert.ok(w.comments.some((c) => c.body.includes(marker(55))) && w.comments.some((c) => c.body.includes(marker(56))));
+});
+
+test("repro (grok r07): a placeholder that cannot be posted gives the 👀 claim back so a redelivery can run", async () => {
+  const w = world({ failComment: true });
+  await onRepro(reproEvent(), w.repo, E, w.f);
+  assert.ok(w.calls.some((c) => c.method === "DELETE" && /\/issues\/comments\/55\/reactions\/\d+$/.test(c.url)));
+  assert.ok(w.calls.some((c) => c.url.endsWith("/reactions") && c.body?.content === "-1"));
+});
+
+test("triage (a2a r07): a failure after the claim gives the 👀 back; a label failure after the comment leaves the reply in place", async () => {
+  const failing = world({ failComment: true });
+  await assert.rejects(onIssueOpened({ issue }, failing.repo, E, failing.f));
+  assert.ok(failing.calls.some((c) => c.method === "DELETE" && /\/issues\/7\/reactions\/\d+$/.test(c.url)));
+  const labels = world({ failLabels: true });
+  await onIssueOpened({ issue }, labels.repo, E, labels.f);
+  assert.equal(labels.comments.length, 1);
+  assert.match(labels.comments[0].body, new RegExp(TRIAGE_MARKER));
+  assert.ok(!labels.calls.some((c) => c.method === "DELETE" && c.url.includes("/reactions/")));
 });
 
 test("webhook ignores noncommands, pull requests and events lacking installation or repository data", async () => {

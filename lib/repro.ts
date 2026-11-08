@@ -26,6 +26,7 @@ export type ReproConfig = {
   maxTokens?: number;
   repairCutoffMs?: number; // no repair turn once this much time has passed (default REPAIR_CUTOFF_MS)
   revision?: string; // commit sha the install is pinned to (default branch head, read by the webhook)
+  startedAt?: number; // epoch ms the job clock starts from (the webhook delivery); default: when runRepro starts
 };
 
 // One deadline for the model + sandbox work of a /repro: 300 s function budget minus a minute for the GitHub
@@ -201,7 +202,9 @@ export async function runRepro(
   env: OtariEnv,
   fetchImpl: typeof fetch = fetch,
 ): Promise<ReproResult> {
-  const started = Date.now();
+  // The clock starts at the webhook delivery when the caller passes it (a2a r07: the GitHub work before the
+  // job also counts against the 300 s function budget), else now.
+  const started = cfg.startedAt ?? Date.now();
   const deadline = started + JOB_BUDGET_MS;
   const body = buildReproRequest(issue, contributor, cfg);
   // contributors: service key + end user (their own allowance); maintainers: the repo pool key
@@ -238,7 +241,10 @@ export async function runRepro(
     // A refusal (budget, auth) is final. A sandbox that is down after its retry is not a verdict either:
     // say "could not run" instead of dressing it up as Inconclusive, unless an earlier run already decided.
     if (exec.error && (exec.httpStatus < 500 || !runs.length)) return { kind: "refused", res: exec.error, modelCostUsd: modelCost };
-    if (exec.error) break;
+    if (exec.error) {
+      repairNote = `the repaired script could not run (sandbox HTTP ${exec.httpStatus}); the first run stands`;
+      break;
+    }
     runs.push(execToToolCall(script, exec));
     const verdict = verdictFrom(runs);
     if (verdict.kind !== "inconclusive" || attempt === 1 || !repairable(exec.stderr)) break;

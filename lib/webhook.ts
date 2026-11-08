@@ -2,9 +2,9 @@
 // Answers GitHub within its 10 s window and finishes the work in the background (waitUntil).
 //  issues.opened          -> triage (bot key, Llama-3.3-70B) + welcome comment + labels
 //  issue_comment.created  -> "/repro" -> contributor's own allowance (service key) -> sandbox verdict
-import { MAINTAINER, RUNNING, failedComment, reproComment, refusalComment, welcomeComment } from "./comment.ts";
+import { MAINTAINER, RUNNING, STOOD_DOWN, failedComment, reproComment, refusalComment, welcomeComment } from "./comment.ts";
 import { issueFromApi, commandIn } from "./github-issue.ts";
-import { REPRO_WINDOW_MS, TRIAGE_MARKER, marker, reproSkip, triageSkip } from "./idempotency.ts";
+import { REPRO_WINDOW_MS, RUNNING_PREFIX, TRIAGE_MARKER, marker, reproSkip, triageSkip } from "./idempotency.ts";
 import { installationToken, Repo, verifySignature } from "./github.ts";
 import { allowanceOf, getEndUser, getEndUserBudgets, getPool, type OtariEnv, type Pool } from "./otari.ts";
 import { endUserId, runRepro } from "./repro.ts";
@@ -66,20 +66,32 @@ export async function onIssueOpened(p: any, repo: Repo, E: WebhookEnv, f: typeof
     console.log("allowance skip triage", issue.number, "already-handled");
     return;
   }
-  if (!(await repo.claim(`/issues/${issue.number}`))) {
+  const claim = `/issues/${issue.number}`;
+  if (!(await repo.claim(claim))) {
     console.log("allowance skip triage", issue.number, "claimed by another delivery");
     return;
   }
-  const { res, triage } = await runTriage(issue, { guardUrl: E.guardUrl }, E.otari, f);
-  const maintainer = isMaintainer(p.issue.author_association);
-  const [a, pool] = await Promise.all([maintainer ? Promise.resolve(MAINTAINER) : allowanceFor(issue.author, E.otari, f), poolFor(E, f)]);
-  if (!res.ok) {
-    if (res.code === "guardrail_violation") await repo.addLabels(issue.number, ["allowance:blocked"]);
-    await repo.comment(issue.number, refusalComment(issue.author, res, a, pool) + "\n" + TRIAGE_MARKER);
-    return;
+  let out: Awaited<ReturnType<typeof runTriage>>;
+  try {
+    out = await runTriage(issue, { guardUrl: E.guardUrl }, E.otari, f);
+    const maintainer = isMaintainer(p.issue.author_association);
+    const [a, pool] = await Promise.all([maintainer ? Promise.resolve(MAINTAINER) : allowanceFor(issue.author, E.otari, f), poolFor(E, f)]);
+    const text = out.res.ok ? welcomeComment(issue.author, out.triage, a, out.res.trace, pool) : refusalComment(issue.author, out.res, a, pool);
+    await repo.comment(issue.number, text + "\n" + TRIAGE_MARKER);
+  } catch (e) {
+    // Nothing marked the issue: give the 👀 back so a redelivery can triage it (a2a r07).
+    await repo.unclaim(claim);
+    throw e;
   }
-  if (triage) await repo.addLabels(issue.number, triageLabels(triage));
-  await repo.comment(issue.number, welcomeComment(issue.author, triage, a, res.trace, pool) + "\n" + TRIAGE_MARKER);
+  // Labels after the marker comment: their failure must not leave the issue claimed and silent (a2a r07,
+  // the same order as onRepro / codex r04 F3).
+  try {
+    if (!out.res.ok) {
+      if (out.res.code === "guardrail_violation") await repo.addLabels(issue.number, ["allowance:blocked"]);
+    } else if (out.triage) await repo.addLabels(issue.number, triageLabels(out.triage));
+  } catch (e) {
+    console.error("allowance triage labels failed", issue.number, String(e));
+  }
 }
 
 export async function onRepro(p: any, repo: Repo, E: WebhookEnv, f: typeof fetch = fetch, now = Date.now()) {
@@ -94,7 +106,8 @@ export async function onRepro(p: any, repo: Repo, E: WebhookEnv, f: typeof fetch
     console.log("allowance skip /repro", p.comment.id, skip.why);
     return;
   }
-  if (!(await repo.claim(`/issues/comments/${p.comment.id}`))) {
+  const claim = `/issues/comments/${p.comment.id}`;
+  if (!(await repo.claim(claim))) {
     console.log("allowance skip /repro", p.comment.id, "claimed by another delivery");
     return;
   }
@@ -102,23 +115,42 @@ export async function onRepro(p: any, repo: Repo, E: WebhookEnv, f: typeof fetch
   try {
     placeholder = await repo.comment(issue.number, RUNNING(login, p.comment.id));
   } catch (e) {
-    // claimed (👀) but nothing posted: mark the trigger failed so it is visibly not running
+    // claimed (👀) but nothing posted: give the claim back so a redelivery can run it, and mark the trigger
     console.error("allowance placeholder failed", issue.number, p.comment.id, String(e));
+    await repo.unclaim(claim);
     await repo.react(p.comment.id, "-1");
     return;
   }
   let result: Awaited<ReturnType<typeof runRepro>>;
   try {
-    const revision = await repo.headSha().catch(() => undefined);
-    result = await runRepro(issue, login, { guardUrl: E.guardUrl, mcpServerIds: E.mcpServerIds, maintainer, revision }, E.otari, f);
-    const [a, pool] = await Promise.all([maintainer ? Promise.resolve(MAINTAINER) : allowanceFor(login, E.otari, f), poolFor(E, f)]);
-    await repo.editComment(placeholder.id, reproComment(login, result, a, pool) + "\n" + marker(p.comment.id));
+    // Two different /repro comments can pass reproSkip before either placeholder exists (codex r07 F3).
+    // Every placeholder is posted before this read, so the earliest one is always visible: it runs, the rest stand down.
+    const earlier = (await repo.listComments(issue.number, since)).some(
+      (c) => c.user?.type === "Bot" && c.id < placeholder.id && c.body.startsWith(RUNNING_PREFIX) && now - Date.parse(c.created_at) < REPRO_WINDOW_MS,
+    );
+    if (earlier) {
+      await repo.editComment(placeholder.id, STOOD_DOWN(login) + "\n" + marker(p.comment.id));
+      return;
+    }
+    // No pinned revision, no run: an unpinned install would name no commit (codex r07 F5, grok).
+    const revision = await repo.headSha();
+    if (!revision) throw new Error("could not read the default branch's head commit");
+    result = await runRepro(issue, login, { guardUrl: E.guardUrl, mcpServerIds: E.mcpServerIds, maintainer, revision, startedAt: now }, E.otari, f);
   } catch (e) {
     // Never leave "⏳ Reproducing…" behind: the placeholder becomes an error the contributor can act on.
     console.error("allowance /repro failed", issue.number, p.comment.id, String(e));
     await repo.editComment(placeholder.id, failedComment(login, e) + "\n" + marker(p.comment.id)).catch(() => null);
     await repo.react(p.comment.id, "-1");
     return;
+  }
+  const [a, pool] = await Promise.all([maintainer ? Promise.resolve(MAINTAINER) : allowanceFor(login, E.otari, f), poolFor(E, f)]);
+  const verdict = reproComment(login, result, a, pool) + "\n" + marker(p.comment.id);
+  try {
+    await repo.editComment(placeholder.id, verdict);
+  } catch (e) {
+    // The run is already paid for: publish it as a new comment instead of asking for another run (grok r07).
+    console.error("allowance verdict edit failed, posting it", issue.number, p.comment.id, String(e));
+    await repo.comment(issue.number, verdict);
   }
   // Labels and reactions after the verdict is published: their failure must not overwrite it (codex r04 F3).
   try {
@@ -143,6 +175,7 @@ export async function onRepro(p: any, repo: Repo, E: WebhookEnv, f: typeof fetch
 export async function handleWebhook(req: Request, deps: Deps): Promise<Response> {
   const E = deps.env;
   const f = deps.fetchImpl ?? fetch;
+  const received = Date.now(); // the job clock starts here: everything after it counts against maxDuration
   const raw = await req.text();
   if (!verifySignature(E.secret, raw, req.headers.get("x-hub-signature-256"))) {
     return Response.json({ error: "bad signature" }, { status: 401 });
@@ -164,7 +197,7 @@ export async function handleWebhook(req: Request, deps: Deps): Promise<Response>
   let job: ((repo: Repo) => Promise<void>) | null = null;
   if (event === "issues" && p.action === "opened") job = (r) => onIssueOpened(p, r, E, f);
   if (event === "issue_comment" && p.action === "created" && !p.issue?.pull_request && commandIn(p.comment?.body ?? "") === "repro") {
-    job = (r) => onRepro(p, r, E, f);
+    job = (r) => onRepro(p, r, E, f, received);
   }
   if (!job || !p.installation?.id || !p.repository?.full_name) return Response.json({ ignored: `${event}.${p.action}` });
 

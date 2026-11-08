@@ -82,3 +82,19 @@ test("triage sends its guardrail and returns gateway refusals without inventing 
   assert.equal(result.res.ok, false);
   assert.equal(result.triage, null);
 });
+
+test("unclaim (a2a r07) deletes only this delivery's own 👀, once, and a failed delete never throws", async () => {
+  const calls: string[] = [];
+  const f = (async (url: unknown, init: RequestInit = {}) => {
+    calls.push(`${init.method ?? "GET"} ${String(url)}`);
+    if (init.method === "POST") return Response.json({ id: 42, content: "eyes" }, { status: 201 });
+    return new Response("gone", { status: 500 });
+  }) as typeof fetch;
+  const repo = new Repo("o/r", "t", f);
+  await repo.unclaim("/issues/7"); // never claimed: no request
+  assert.equal(calls.length, 0);
+  assert.equal(await repo.claim("/issues/7"), true);
+  await repo.unclaim("/issues/7"); // DELETE answers 500: swallowed
+  await repo.unclaim("/issues/7"); // already released: no second request
+  assert.deepEqual(calls, ["POST https://api.github.com/repos/o/r/issues/7/reactions", "DELETE https://api.github.com/repos/o/r/issues/7/reactions/42"]);
+});

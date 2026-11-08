@@ -200,6 +200,10 @@ export function welcomeComment(login: string, t: { kind: string; has_repro_steps
   return lines.join("\n");
 }
 
+// Two different /repro comments on one issue can pass the in-flight check together; the later one stands down.
+export const STOOD_DOWN = (login: string) =>
+  `⏸️ @${login}, another \`/repro\` on this issue was already running, so this one was not run and nothing was charged. Comment \`/repro\` again once it has finished.`;
+
 export const RUNNING = (login: string, triggerId?: number) =>
   `${RUNNING_PREFIX} for @${login} in a sandbox… this comment will update.${triggerId == null ? "" : "\n" + marker(triggerId)}`;
 
