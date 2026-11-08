@@ -22,7 +22,7 @@ beforeEach((context) => {
   const t = context as TestContext;
   const previous = process.env;
   process.env = { ...previous };
-  for (const key of ["GUARD_TOKEN", "OTARI_API_KEY", "OTARI_BASE_URL", "VERCEL_GIT_COMMIT_SHA"]) delete process.env[key];
+  for (const key of ["GUARD_TOKEN", "OTARI_API_KEY", "OTARI_BASE_URL", "VERCEL_GIT_COMMIT_SHA", "PUBLIC_BASE_URL"]) delete process.env[key];
   t.after(() => { process.env = previous; });
   t.mock.method(globalThis, "fetch", async () => { throw new Error("unexpected network request"); });
   t.mock.method(console, "log", () => {});
@@ -59,8 +59,19 @@ test("guard malformed JSON and non-string input return actionable validation err
     assert.equal(res.status, 400);
     assert.deepEqual(await res.json(), { detail: "input_text must be a string" });
   }
-  // Logging currently dereferences null before validation; pin the existing behavior.
-  await assert.rejects(guard.POST(request(null)), TypeError);
+  // muse r07 F6: a JSON null used to throw in the log line before validation (and this test pinned the crash)
+  const nul = await guard.POST(request(null));
+  assert.equal(nul.status, 400);
+  assert.deepEqual(await nul.json(), { detail: "input_text must be a string" });
+});
+
+test("guard (muse/kimi/opus r07): only /validate (POST) and /profiles (GET) exist; a right token on another action is 404", async () => {
+  process.env.GUARD_TOKEN = "secret";
+  const other = await guard.POST(new Request("https://app.test/api/guard/secret/anything", { method: "POST", body: JSON.stringify({ input_text: "x" }) }));
+  assert.equal(other.status, 404);
+  assert.equal((await guard.GET(new Request("https://app.test/api/guard/secret/validate"))).status, 404);
+  assert.equal((await guard.GET(new Request("https://app.test/api/guard/secreT/profiles"))).status, 404);
+  assert.equal((await guard.GET(new Request("https://app.test/api/guard/secret/profiles"))).status, 200);
 });
 
 test("guard empty input passes locally and selects the supplied or default profile", async () => {
@@ -146,6 +157,7 @@ test("GitHub API exposes liveness and rejects invalid webhook signatures", async
 test("GitHub API schedules signed issue triage through Vercel and mints an installation token", async (t) => {
   process.env.GITHUB_WEBHOOK_SECRET = "secret";
   process.env.GUARD_TOKEN = "secret";
+  process.env.PUBLIC_BASE_URL = "https://app.test";
   process.env.GITHUB_APP_ID = "1";
   process.env.GITHUB_PRIVATE_KEY = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs1", format: "pem" }).toString();
   const jobs: Promise<unknown>[] = [];

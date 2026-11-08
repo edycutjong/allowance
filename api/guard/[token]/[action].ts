@@ -1,26 +1,28 @@
 // https://<deploy>/api/guard/<GUARD_TOKEN>/validate  — Otari guardrails contract
 // https://<deploy>/api/guard/<GUARD_TOKEN>/profiles  — optional profile listing
 // The token lives in the path because a request-body guardrail entry carries only a URL.
+import { createHash, timingSafeEqual } from "node:crypto";
 import { classify, decide, GUARD_MODEL, MAX_WINDOWS, PROFILES, windows } from "../../../lib/guard.js";
 
 // Up to MAX_WINDOWS guard calls run in parallel, each capped at 20 s (lib/guard.ts).
 export const config = { maxDuration: 60 };
 
-function authorized(req: Request): boolean {
+// Constant-time token compare (kimi/opus r07), and only the two documented actions exist (muse r07 F6).
+const digest = (s: string) => createHash("sha256").update(s).digest();
+function authorized(req: Request, action: "validate" | "profiles"): boolean {
   const parts = new URL(req.url).pathname.split("/");
-  const token = parts[parts.length - 2];
   const want = process.env.GUARD_TOKEN;
-  return Boolean(want) && token === want;
+  return Boolean(want) && parts[parts.length - 1] === action && timingSafeEqual(digest(parts[parts.length - 2]), digest(want!));
 }
 
 export async function GET(req: Request): Promise<Response> {
-  if (!authorized(req)) return new Response("not found", { status: 404 });
+  if (!authorized(req, "profiles")) return new Response("not found", { status: 404 });
   return Response.json(PROFILES.map((name) => ({ name, guardrail_name: GUARD_MODEL })));
 }
 
 export async function POST(req: Request): Promise<Response> {
   const ua = req.headers.get("user-agent") ?? "?";
-  if (!authorized(req)) {
+  if (!authorized(req, "validate")) {
     console.log("guard 404", new URL(req.url).pathname.split("/").slice(-1)[0], ua);
     return new Response("not found", { status: 404 });
   }
@@ -32,10 +34,11 @@ export async function POST(req: Request): Promise<Response> {
     console.log("guard bad json", ua, raw.slice(0, 200));
     return Response.json({ detail: "invalid json" }, { status: 400 });
   }
-  console.log("guard request", ua, "keys=" + Object.keys(body).join(","), "len=" + (body.input_text ?? "").length);
+  // shape first: a JSON null or scalar body used to throw in the log line below (muse r07 F6)
   if (typeof body !== "object" || body === null || (body.input_text != null && typeof body.input_text !== "string")) {
     return Response.json({ detail: "input_text must be a string" }, { status: 400 });
   }
+  console.log("guard request", ua, "keys=" + Object.keys(body).join(","), "len=" + (body.input_text ?? "").length);
   const profile = typeof body.profile === "string" ? body.profile : "prompt-injection";
   const input = body.input_text ?? "";
   if (!input.trim()) return Response.json({ profile, result: { valid: true, explanation: "empty input", score: 0 } });

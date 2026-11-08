@@ -186,14 +186,15 @@ test("deepseek r04 P1-2: claimed but the placeholder cannot be posted → 👎 o
   assert.equal(w.calls.filter((c) => c.url.endsWith("/chat/completions")).length, 0);
 });
 
-test("webhook environment defaults fail closed and expand escaped private-key newlines", async (t) => {
+test("webhook environment defaults fail closed (no guard without PUBLIC_BASE_URL, glm r07) and expand escaped private-key newlines", async (t) => {
   const { envFromProcess } = await import("../lib/webhook.ts");
   assert.deepEqual(envFromProcess({}), { otari: { OTARI_BASE_URL: undefined, OTARI_API_KEY: "", OTARI_SERVICE_KEY: "" }, appId: "", pem: "", secret: "", guardUrl: undefined, mcpServerIds: [], poolCeilingUsd: 5 });
   const previous = process.env;
   process.env = { GITHUB_APP_ID: "42", GITHUB_PRIVATE_KEY: "line1\\nline2", GITHUB_WEBHOOK_SECRET: "secret", GUARD_TOKEN: "token", OTARI_API_KEY: "bot", OTARI_SERVICE_KEY: "service", OTARI_BASE_URL: "https://gateway.test", OTARI_MCP_GITHUB_ID: "mcp", POOL_CEILING_USD: "10" };
   t.after(() => { process.env = previous; });
-  assert.deepEqual(envFromProcess(), { otari: { OTARI_BASE_URL: "https://gateway.test", OTARI_API_KEY: "bot", OTARI_SERVICE_KEY: "service" }, appId: "42", pem: "line1\nline2", secret: "secret", guardUrl: "https://allowance.edycu.dev/api/guard/token", mcpServerIds: ["mcp"], poolCeilingUsd: 10 });
-  assert.equal(envFromProcess({ GUARD_TOKEN: "t", PUBLIC_BASE_URL: "https://custom.test" }).guardUrl, "https://custom.test/api/guard/t");
+  assert.deepEqual(envFromProcess(), { otari: { OTARI_BASE_URL: "https://gateway.test", OTARI_API_KEY: "bot", OTARI_SERVICE_KEY: "service" }, appId: "42", pem: "line1\nline2", secret: "secret", guardUrl: undefined, mcpServerIds: ["mcp"], poolCeilingUsd: 10 });
+  assert.equal(envFromProcess({ GUARD_TOKEN: "t", PUBLIC_BASE_URL: "https://custom.test/" }).guardUrl, "https://custom.test/api/guard/t");
+  assert.equal(envFromProcess({ PUBLIC_BASE_URL: "https://custom.test" }).guardUrl, undefined);
 });
 
 test("triage racing deliveries claim the issue once before calling the model", async (t) => {

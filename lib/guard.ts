@@ -13,7 +13,9 @@ export type ParsedGuard = { safety: "Safe" | "Unsafe" | "Controversial" | null; 
 
 // Qwen3Guard-Gen answers e.g. "Safety: Unsafe\nCategories: Jailbreak, PII"
 export function parseGuardOutput(text: string): ParsedGuard {
-  const safety = /Safety:\s*(Safe|Unsafe|Controversial)/i.exec(text)?.[1];
+  // Only a verdict that OPENS the reply counts (grok r07): an echoed "Safety: Safe" later in the text never
+  // decides, and output that does not start with a label has no verdict, so the check fails closed (502).
+  const safety = /^\s*Safety:\s*(Safe|Unsafe|Controversial)\b/i.exec(text)?.[1];
   const cats = /Categories:\s*([^\n]+)/i.exec(text)?.[1] ?? "";
   const norm = safety ? (safety[0].toUpperCase() + safety.slice(1).toLowerCase()) as ParsedGuard["safety"] : null;
   return {

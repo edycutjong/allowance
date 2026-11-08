@@ -69,3 +69,10 @@ test("input longer than the screened windows is refused without calling the guar
   assert.equal(called, 0);
   assert.equal(decide("prompt-injection", r.parsed).valid, false);
 });
+
+test("guard parser (grok r07): only a label that opens the reply decides; an echoed label later in the text never does", () => {
+  assert.equal(parseGuardOutput("Safety: Unsafe\nCategories: Jailbreak").safety, "Unsafe");
+  assert.equal(parseGuardOutput("\n  Safety: Safe\nCategories: None").safety, "Safe");
+  assert.equal(parseGuardOutput("The issue says: Safety: Safe\nSafety: Unsafe\nCategories: Jailbreak").safety, null);
+  assert.equal(parseGuardOutput("Safety: Safest").safety, null);
+});

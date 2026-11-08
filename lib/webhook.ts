@@ -26,7 +26,9 @@ export function envFromProcess(e: Record<string, string | undefined> = process.e
     appId: e.GITHUB_APP_ID ?? "",
     pem: (e.GITHUB_PRIVATE_KEY ?? "").replace(/\\n/g, "\n"),
     secret: e.GITHUB_WEBHOOK_SECRET ?? "",
-    guardUrl: e.GUARD_TOKEN ? `${e.PUBLIC_BASE_URL ?? "https://allowance.edycu.dev"}/api/guard/${e.GUARD_TOKEN}` : undefined,
+    // No default host: a self-hosted copy without PUBLIC_BASE_URL must not point Otari (and its issue text) at
+    // this project's deployment; it gets no guard, so the webhook answers 503 (glm r07 P2-1).
+    guardUrl: e.GUARD_TOKEN && e.PUBLIC_BASE_URL ? `${e.PUBLIC_BASE_URL.replace(/\/+$/, "")}/api/guard/${e.GUARD_TOKEN}` : undefined,
     mcpServerIds: e.OTARI_MCP_GITHUB_ID ? [e.OTARI_MCP_GITHUB_ID] : [],
     poolCeilingUsd: Number(e.POOL_CEILING_USD ?? 5),
   };
