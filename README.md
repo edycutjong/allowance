@@ -8,6 +8,7 @@
 
   [![Live](https://img.shields.io/badge/🚀_Live-allowance.edycu.dev-06b6d4?style=for-the-badge)](https://allowance.edycu.dev)
   [![For judges](https://img.shields.io/badge/⚖️_For_judges-30--second_path-B3261E?style=for-the-badge)](https://allowance.edycu.dev/judge)
+  [![Demo video](https://img.shields.io/badge/▶️_Demo_video-4_min-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/eyq19dqb5Dw)
   [![Try it](https://img.shields.io/badge/🧪_Try_it-allowance--demo-f59e0b?style=for-the-badge)](https://github.com/edycutjong/allowance-demo/issues)
   [![Pitch deck](https://img.shields.io/badge/🎞️_Pitch_deck-allowance.edycu.dev%2Fdeck-8C7A4F?style=for-the-badge)](https://allowance.edycu.dev/deck)
   [![Built for Otari](https://img.shields.io/badge/DoraHacks-Devs_Wilding_Online-8b5cf6?style=for-the-badge)](https://dorahacks.io/hackathon/mozilla-devs-wilding/detail)
